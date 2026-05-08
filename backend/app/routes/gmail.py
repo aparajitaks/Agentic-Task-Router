@@ -22,6 +22,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import sqlalchemy as sa
+from typing import cast
+import uuid
 
 from app.db.session import get_db
 from app.models.user import User
@@ -45,24 +47,24 @@ async def connect_gmail() -> dict:
 @router.get("/callback", summary="OAuth Callback")
 async def gmail_callback(
     code: str = Query(..., description="The authorization code from Google"),
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
     """Handles the redirect from Google and stores the OAuth tokens."""
     oauth_service = GoogleOAuthService()
-    await oauth_service.exchange_code_for_token(db, code, user.id)
+    await oauth_service.exchange_code_for_token(db, code, cast(uuid.UUID, current_user.id))
     return success_response(data={}, message="Gmail connected successfully! You can close this window.")
 
 
 @router.get("/status", summary="Check Integration Status")
 async def gmail_status(
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
     """Checks if the system has valid Gmail OAuth tokens."""
     stmt = select(OAuthToken).where(
         OAuthToken.provider == "google",
-        OAuthToken.user_id == user.id
+        OAuthToken.user_id == cast(uuid.UUID, current_user.id)
     )
     result = await db.execute(stmt)
     token = result.scalar_one_or_none()
@@ -82,13 +84,13 @@ async def gmail_status(
 
 @router.post("/sync", summary="Trigger Email Ingestion")
 async def sync_emails(
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
     """
     Manually triggers the pipeline to fetch unread emails for the current user.
     """
-    ingester = EmailIngester(db, user_id=user.id)
+    ingester = EmailIngester(db, user_id=cast(uuid.UUID, current_user.id))
     count = await ingester.sync_unread_emails()
     
     return success_response(
@@ -100,19 +102,19 @@ async def sync_emails(
 async def list_ingested_emails(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
     """Returns a list of emails that have been ingested for the current user."""
     offset = (page - 1) * page_size
     
     # Count total
-    count_stmt = select(sa.func.count()).select_from(EmailMessage).where(EmailMessage.user_id == user.id)
+    count_stmt = select(sa.func.count()).select_from(EmailMessage).where(EmailMessage.user_id == cast(uuid.UUID, current_user.id))
     count_result = await db.execute(count_stmt)
     total = count_result.scalar_one()
 
     # Fetch messages
-    stmt = select(EmailMessage).where(EmailMessage.user_id == user.id).order_by(EmailMessage.created_at.desc()).offset(offset).limit(page_size)
+    stmt = select(EmailMessage).where(EmailMessage.user_id == cast(uuid.UUID, current_user.id)).order_by(EmailMessage.created_at.desc()).offset(offset).limit(page_size)
     result = await db.execute(stmt)
     messages = result.scalars().all()
 

@@ -23,7 +23,7 @@ HOW IT CONNECTS
 """
 
 import uuid
-from typing import Optional
+from typing import Optional, cast
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,11 +62,11 @@ async def list_approvals(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     status_filter: Optional[ApprovalStatus] = Query(default=None, alias="status"),
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     approvals, total = await get_all_approvals(
-        db, user_id=user.id, page=page, page_size=page_size, status_filter=status_filter
+        db, user_id=cast(uuid.UUID, current_user.id), page=page, page_size=page_size, status_filter=status_filter
     )
     return paginated_response(
         data=[ApprovalResponse.model_validate(a).model_dump(mode="json") for a in approvals],
@@ -89,10 +89,10 @@ async def list_approvals(
 async def list_pending_approvals(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    approvals, total = await get_pending_approvals(db, user_id=user.id, page=page, page_size=page_size)
+    approvals, total = await get_pending_approvals(db, user_id=cast(uuid.UUID, current_user.id), page=page, page_size=page_size)
     return paginated_response(
         data=[ApprovalResponse.model_validate(a).model_dump(mode="json") for a in approvals],
         total=total,
@@ -113,10 +113,10 @@ async def list_pending_approvals(
 )
 async def get_approval(
     approval_id: uuid.UUID,
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    approval = await get_approval_by_id(db, approval_id, user.id)
+    approval = await get_approval_by_id(db, approval_id, cast(uuid.UUID, current_user.id))
     return success_response(
         data=ApprovalResponse.model_validate(approval).model_dump(mode="json"),
         message="Approval retrieved.",
@@ -135,13 +135,13 @@ async def get_approval(
 async def approve_workflow(
     approval_id: uuid.UUID,
     body: ApproveRequest,
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     approval = await process_approval_decision(
         db,
         approval_id,
-        user.id,
+        cast(uuid.UUID, current_user.id),
         decision=ApprovalStatus.APPROVED,
         reviewer_id=body.reviewer_id,
         reviewer_name=body.reviewer_name,
@@ -165,13 +165,13 @@ async def approve_workflow(
 async def edit_and_approve_workflow(
     approval_id: uuid.UUID,
     body: EditRequest,
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     approval = await process_approval_decision(
         db,
         approval_id,
-        user.id,
+        cast(uuid.UUID, current_user.id),
         decision=ApprovalStatus.EDITED,
         reviewer_id=body.reviewer_id,
         reviewer_name=body.reviewer_name,
@@ -196,13 +196,13 @@ async def edit_and_approve_workflow(
 async def reject_workflow(
     approval_id: uuid.UUID,
     body: RejectRequest,
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     approval = await process_approval_decision(
         db,
         approval_id,
-        user.id,
+        cast(uuid.UUID, current_user.id),
         decision=ApprovalStatus.REJECTED,
         reviewer_id=body.reviewer_id,
         reviewer_name=body.reviewer_name,

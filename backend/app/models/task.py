@@ -52,6 +52,7 @@ if TYPE_CHECKING:
     from app.models.agent import Agent
     from app.models.log import Log
     from app.models.approval import Approval
+    from app.models.user import User
 
 
 class TaskStatus(str, enum.Enum):
