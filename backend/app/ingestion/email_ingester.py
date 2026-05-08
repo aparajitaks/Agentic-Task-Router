@@ -18,6 +18,7 @@ HOW IT CONNECTS
     by a scheduled Celery Beat task (polling).
 """
 
+import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -33,8 +34,9 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 class EmailIngester:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, user_id: uuid.UUID):
         self.db = db
+        self.user_id = user_id
         self.oauth_service = GoogleOAuthService()
 
     async def sync_unread_emails(self) -> int:
@@ -43,7 +45,7 @@ class EmailIngester:
         Returns the number of emails processed.
         """
         # 1. Authenticate
-        creds = await self.oauth_service.get_valid_credentials(self.db)
+        creds = await self.oauth_service.get_valid_credentials(self.db, self.user_id)
         client = GmailClient(credentials=creds)
 
         # 2. Fetch Unread Email IDs
@@ -63,9 +65,12 @@ class EmailIngester:
         for meta in unread_metadata:
             msg_id = meta['id']
             
-            # Check if we already processed this message
+            # Check if we already processed this message for this user
             existing = await self.db.execute(
-                select(EmailMessage).where(EmailMessage.gmail_message_id == msg_id)
+                select(EmailMessage).where(
+                    EmailMessage.gmail_message_id == msg_id,
+                    EmailMessage.user_id == self.user_id
+                )
             )
             if existing.scalar_one_or_none():
                 # Already processed, just remove UNREAD label to clear inbox
@@ -88,7 +93,8 @@ class EmailIngester:
                     title=f"Email from {parsed['sender']}",
                     description="Automatically generated from Gmail Integration",
                     input_text=input_text,
-                    status=TaskStatus.QUEUED
+                    status=TaskStatus.QUEUED,
+                    user_id=self.user_id
                 )
                 self.db.add(task)
                 await self.db.flush() # Get task ID
@@ -96,6 +102,7 @@ class EmailIngester:
                 # 6. Save Email Message
                 email_msg = EmailMessage(
                     gmail_message_id=parsed['gmail_message_id'],
+                    user_id=self.user_id,
                     thread_id=thread.id,
                     sender_email=parsed['sender'],
                     subject=parsed['subject'],

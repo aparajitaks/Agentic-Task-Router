@@ -77,6 +77,7 @@ def human_review_node(state: WorkflowState) -> WorkflowState:
     input_text = state.get("input_text") or ""
     route = state.get("route") or "unknown"
     selected_agent = state.get("selected_agent") or "unknown"
+    user_id_str = state.get("user_id")
 
     if not task_id_str:
         logger.error("human_review_node: task_id missing from state — cannot create approval")
@@ -115,6 +116,7 @@ def human_review_node(state: WorkflowState) -> WorkflowState:
                 return await create_approval(
                     db,
                     task_id=uuid.UUID(task_id_str),
+                    user_id=uuid.UUID(user_id_str) if user_id_str else None,
                     ai_generated_draft=final_output,
                     original_input=input_text,
                     graph_checkpoint_state=checkpoint,

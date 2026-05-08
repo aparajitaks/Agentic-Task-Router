@@ -118,6 +118,14 @@ class Approval(Base, TimestampMixin):
         doc="The task this approval checkpoint belongs to.",
     )
 
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        doc="The user this approval checkpoint belongs to.",
+    )
+
     # ── AI-Generated Content Under Review ─────────────────────────────────────
     ai_generated_draft: Mapped[str | None] = mapped_column(
         Text,
@@ -216,6 +224,12 @@ class Approval(Base, TimestampMixin):
     # ── Relationships ─────────────────────────────────────────────────────────
     task: Mapped[Task] = relationship(
         "Task",
+        back_populates="approvals",
+        lazy="select",
+    )
+
+    user: Mapped[User | None] = relationship(
+        "User",
         back_populates="approvals",
         lazy="select",
     )

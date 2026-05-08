@@ -18,6 +18,7 @@ HOW IT CONNECTS
 """
 
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,8 +70,8 @@ class GoogleOAuthService:
         )
         return auth_url
 
-    async def exchange_code_for_token(self, db: AsyncSession, code: str) -> OAuthToken:
-        """Exchanges the auth code for access/refresh tokens and saves to DB."""
+    async def exchange_code_for_token(self, db: AsyncSession, code: str, user_id: uuid.UUID) -> OAuthToken:
+        """Exchanges the auth code for access/refresh tokens and saves to DB for the user."""
         flow = Flow.from_client_config(
             self.client_config,
             scopes=GMAIL_SCOPES,
@@ -84,13 +85,16 @@ class GoogleOAuthService:
 
         creds = flow.credentials
 
-        # Upsert the token into the database
-        stmt = select(OAuthToken).where(OAuthToken.provider == "google")
+        # Upsert the token into the database for this specific user
+        stmt = select(OAuthToken).where(
+            OAuthToken.provider == "google",
+            OAuthToken.user_id == user_id
+        )
         result = await db.execute(stmt)
         token_record = result.scalar_one_or_none()
 
         if not token_record:
-            token_record = OAuthToken(provider="google")
+            token_record = OAuthToken(provider="google", user_id=user_id)
             db.add(token_record)
 
         token_record.access_token = creds.token
@@ -104,12 +108,15 @@ class GoogleOAuthService:
         await db.refresh(token_record)
         return token_record
 
-    async def get_valid_credentials(self, db: AsyncSession) -> Credentials:
+    async def get_valid_credentials(self, db: AsyncSession, user_id: uuid.UUID) -> Credentials:
         """
-        Retrieves credentials from the DB. Automatically refreshes them if expired.
+        Retrieves credentials from the DB for a specific user. Automatically refreshes them if expired.
         Raises ValidationException if no tokens exist or refresh fails.
         """
-        stmt = select(OAuthToken).where(OAuthToken.provider == "google")
+        stmt = select(OAuthToken).where(
+            OAuthToken.provider == "google",
+            OAuthToken.user_id == user_id
+        )
         result = await db.execute(stmt)
         token_record = result.scalar_one_or_none()
 

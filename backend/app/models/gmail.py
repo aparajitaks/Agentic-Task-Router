@@ -20,6 +20,7 @@ HOW IT CONNECTS
 
 import uuid
 from datetime import datetime
+import sqlalchemy as sa
 from sqlalchemy import String, Text, Boolean, Integer, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
@@ -27,15 +28,22 @@ from sqlalchemy.types import Uuid
 from app.db.base import Base, TimestampMixin
 
 class OAuthToken(Base, TimestampMixin):
-    """Stores Google OAuth2 tokens securely."""
+    """Stores Google OAuth2 tokens securely for each user."""
     __tablename__ = "oauth_tokens"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    provider: Mapped[str] = mapped_column(String(50), default="google", unique=True, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(50), default="google", index=True)
     access_token: Mapped[str] = mapped_column(Text, nullable=False)
     refresh_token: Mapped[str] = mapped_column(Text, nullable=True)
     scopes: Mapped[str] = mapped_column(Text, nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=True)
+
+    user = relationship("User", back_populates="oauth_tokens")
+
+    __table_args__ = (
+        sa.UniqueConstraint("user_id", "provider", name="uq_user_provider"),
+    )
 
 
 class EmailThread(Base, TimestampMixin):
@@ -56,6 +64,7 @@ class EmailMessage(Base, TimestampMixin):
     __tablename__ = "email_messages"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     gmail_message_id: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     thread_id: Mapped[Uuid | None] = mapped_column(Uuid, ForeignKey("email_threads.id"), nullable=True)
     

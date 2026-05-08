@@ -33,6 +33,7 @@ class WorkflowState(TypedDict):
     - messages: LangGraph standard message array for ToolNode execution.
     """
     task_id: str
+    user_id: str  # Critical for multi-tenant isolation in graph nodes
     input_text: str
     route: Optional[str]
     selected_agent: Optional[str]

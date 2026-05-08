@@ -37,7 +37,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.core.responses import paginated_response, success_response
 from app.db.session import get_db
-from app.models.task import TaskStatus
+from app.models.task import TaskStatus, Task
+from app.core.auth import get_current_user
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate, TaskExecuteRequest
 from app.services import (
     create_task,
@@ -48,8 +49,8 @@ from app.services import (
 )
 from app.models.log import Log
 from sqlalchemy import select
-from app.workers.tasks import execute_agentic_workflow_task
 from app.models.task import Task
+from app.core.auth import get_current_user
 
 logger = get_logger(__name__)
 
@@ -75,9 +76,10 @@ router = APIRouter(
 )
 async def create_task_route(
     payload: TaskCreate,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    task = await create_task(db, payload)
+    task = await create_task(db, payload, user.id)
     return success_response(
         data=task.model_dump(mode="json"),
         message="Task created successfully.",
@@ -97,6 +99,7 @@ async def create_task_route(
 )
 async def execute_workflow_route(
     payload: TaskExecuteRequest,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     # 1. Create task in DB as QUEUED
@@ -104,7 +107,8 @@ async def execute_workflow_route(
         title=payload.title,
         description="Async AI Workflow Execution",
         input_text=payload.input_text,
-        status=TaskStatus.QUEUED
+        status=TaskStatus.QUEUED,
+        user_id=user.id
     )
     db.add(task)
     await db.commit()
@@ -141,9 +145,10 @@ async def list_tasks_route(
         alias="status",
         description="Filter tasks by lifecycle status.",
     ),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    tasks, total = await get_all_tasks(db, page=page, page_size=page_size, status_filter=status_filter)
+    tasks, total = await get_all_tasks(db, user_id=user.id, page=page, page_size=page_size, status_filter=status_filter)
     return paginated_response(
         data=[t.model_dump(mode="json") for t in tasks],
         total=total,
@@ -165,9 +170,10 @@ async def list_tasks_route(
 )
 async def get_task_route(
     task_id: uuid.UUID,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    task = await get_task_by_id(db, task_id)
+    task = await get_task_by_id(db, task_id, user.id)
     return success_response(
         data=task.model_dump(mode="json"),
         message="Task retrieved successfully.",
@@ -187,9 +193,10 @@ async def get_task_route(
 )
 async def get_task_workflow_route(
     task_id: uuid.UUID,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    task = await get_task_by_id(db, task_id)
+    task = await get_task_by_id(db, task_id, user.id)
     return success_response(
         data=task.model_dump(mode="json"),
         message="Workflow state retrieved.",
@@ -209,8 +216,12 @@ async def get_task_workflow_route(
 )
 async def get_task_logs_route(
     task_id: uuid.UUID,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    # First verify task ownership
+    await get_task_by_id(db, task_id, user.id)
+    
     # Basic query to fetch logs ordered by timestamp
     query = select(Log).where(Log.task_id == task_id).order_by(Log.timestamp.asc())
     result = await db.execute(query)
@@ -249,9 +260,10 @@ async def get_task_logs_route(
 async def update_task_route(
     task_id: uuid.UUID,
     payload: TaskUpdate,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    task = await update_task(db, task_id, payload)
+    task = await update_task(db, task_id, user.id, payload)
     return success_response(
         data=task.model_dump(mode="json"),
         message="Task updated successfully.",
@@ -274,9 +286,10 @@ async def update_task_route(
 )
 async def delete_task_route(
     task_id: uuid.UUID,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    await soft_delete_task(db, task_id)
+    await soft_delete_task(db, task_id, user.id)
     return success_response(
         data={"task_id": str(task_id)},
         message="Task deleted successfully.",

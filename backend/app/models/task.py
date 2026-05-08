@@ -40,6 +40,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.types import Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+import sqlalchemy as sa
+from sqlalchemy import Column # For legacy compatibility if needed, but we should use Mapped
 
 from app.db.base import Base, TimestampMixin
 
@@ -213,6 +215,17 @@ class Task(Base, TimestampMixin):
         Index("ix_tasks_status_created_at", "status", "created_at"),
         Index("ix_tasks_agent_status", "assigned_agent_id", "status"),
     )
+
+    # ── Multi-tenancy ────────────────────────────────────────────────────────
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(),
+        sa.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        doc="Owner of this task. Crucial for multi-tenant isolation.",
+    )
+
+    user: Mapped[User | None] = relationship("User", back_populates="tasks")
 
     def __repr__(self) -> str:
         return f"<Task id={self.id!s:.8} title={self.title!r} status={self.status.value!r}>"

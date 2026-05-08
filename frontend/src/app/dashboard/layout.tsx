@@ -1,5 +1,5 @@
 /**
- * frontend/src/app/(dashboard)/layout.tsx
+ * frontend/src/app/dashboard/layout.tsx
  *
  * WHY IT EXISTS:
  * Next.js route groups (the parenthesis syntax) allow us to apply a shared UI layout

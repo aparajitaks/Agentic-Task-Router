@@ -73,9 +73,13 @@ async def _create_log(
     # Log is flushed as part of the same transaction as the Task change
 
 
-async def _get_task_or_404(db: AsyncSession, task_id: uuid.UUID) -> Task:
-    """Fetch a non-deleted Task by ID, or raise NotFoundException."""
-    stmt = select(Task).where(Task.id == task_id, Task.is_deleted.is_(False))
+async def _get_task_or_404(db: AsyncSession, task_id: uuid.UUID, user_id: uuid.UUID) -> Task:
+    """Fetch a non-deleted Task by ID belonging to the user, or raise NotFoundException."""
+    stmt = select(Task).where(
+        Task.id == task_id, 
+        Task.user_id == user_id,
+        Task.is_deleted.is_(False)
+    )
     result = await db.execute(stmt)
     task = result.scalar_one_or_none()
     if task is None:
@@ -121,21 +125,15 @@ def _validate_status_transition(current: TaskStatus, new: TaskStatus) -> None:
 # Public Service Functions
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def create_task(db: AsyncSession, payload: TaskCreate) -> TaskResponse:
+async def create_task(db: AsyncSession, payload: TaskCreate, user_id: uuid.UUID) -> TaskResponse:
     """
     Create a new Task and insert the first audit log entry.
-
-    Args:
-        db:      Async database session (injected via Depends).
-        payload: Validated TaskCreate schema from the request body.
-
-    Returns:
-        TaskResponse Pydantic model representing the newly created task.
     """
     task = Task(
         title=payload.title,
         description=payload.description,
         status=payload.status,
+        user_id=user_id,
     )
     db.add(task)
     await db.flush()   # Flush to get the DB-generated `id` before creating the log
@@ -154,6 +152,7 @@ async def create_task(db: AsyncSession, payload: TaskCreate) -> TaskResponse:
 
 async def get_all_tasks(
     db: AsyncSession,
+    user_id: uuid.UUID,
     page: int = 1,
     page_size: int = 20,
     status_filter: TaskStatus | None = None,
@@ -174,8 +173,8 @@ async def get_all_tasks(
     page_size = min(page_size, 100)  # Hard cap to prevent abuse
     offset = (page - 1) * page_size
 
-    # Base query — always exclude soft-deleted tasks
-    base_filter = [Task.is_deleted.is_(False)]
+    # Base query — always exclude soft-deleted tasks and scope by user
+    base_filter = [Task.is_deleted.is_(False), Task.user_id == user_id]
     if status_filter:
         base_filter.append(Task.status == status_filter)
 
@@ -198,7 +197,7 @@ async def get_all_tasks(
     return [TaskResponse.model_validate(t) for t in tasks], total
 
 
-async def get_task_by_id(db: AsyncSession, task_id: uuid.UUID) -> TaskResponse:
+async def get_task_by_id(db: AsyncSession, task_id: uuid.UUID, user_id: uuid.UUID) -> TaskResponse:
     """
     Return a single Task by its UUID, or raise NotFoundException.
 
@@ -212,13 +211,14 @@ async def get_task_by_id(db: AsyncSession, task_id: uuid.UUID) -> TaskResponse:
     Raises:
         NotFoundException: If no non-deleted task exists with this ID.
     """
-    task = await _get_task_or_404(db, task_id)
+    task = await _get_task_or_404(db, task_id, user_id)
     return TaskResponse.model_validate(task)
 
 
 async def update_task(
     db: AsyncSession,
     task_id: uuid.UUID,
+    user_id: uuid.UUID,
     payload: TaskUpdate,
 ) -> TaskResponse:
     """
@@ -239,7 +239,7 @@ async def update_task(
         NotFoundException:   Task not found / Agent not found.
         ValidationException: Invalid status transition.
     """
-    task = await _get_task_or_404(db, task_id)
+    task = await _get_task_or_404(db, task_id, user_id)
     changes: list[str] = []
 
     # ── Status transition ─────────────────────────────────────────────────────
@@ -291,7 +291,7 @@ async def update_task(
     return TaskResponse.model_validate(task)
 
 
-async def soft_delete_task(db: AsyncSession, task_id: uuid.UUID) -> None:
+async def soft_delete_task(db: AsyncSession, task_id: uuid.UUID, user_id: uuid.UUID) -> None:
     """
     Soft-delete a Task by setting is_deleted=True.
 
@@ -305,7 +305,7 @@ async def soft_delete_task(db: AsyncSession, task_id: uuid.UUID) -> None:
     Raises:
         NotFoundException: Task not found.
     """
-    task = await _get_task_or_404(db, task_id)
+    task = await _get_task_or_404(db, task_id, user_id)
     task.is_deleted = True
 
     await _create_log(

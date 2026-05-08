@@ -41,7 +41,14 @@ from app.config.settings import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.db.session import close_db, init_db
-from app.routes import health_router, tasks_router, gmail_router, tools_router, approvals_router
+from app.routes import (
+    health_router, 
+    tasks_router, 
+    gmail_router, 
+    tools_router, 
+    approvals_router,
+    users_router
+)
 from app.utils.middleware import RequestLoggingMiddleware
 
 settings = get_settings()
@@ -111,7 +118,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],                   # Allow all for local QA dev
+        allow_origins=settings.cors_origins if not settings.is_production else settings.cors_origins, 
         allow_credentials=True,
         allow_methods=["*"],                   # GET, POST, PATCH, DELETE, OPTIONS
         allow_headers=["*"],                   # Content-Type, Authorization, etc.
@@ -131,6 +138,7 @@ def create_app() -> FastAPI:
     app.include_router(gmail_router, prefix=settings.api_v1_prefix)
     app.include_router(tools_router, prefix=settings.api_v1_prefix)
     app.include_router(approvals_router, prefix=settings.api_v1_prefix)
+    app.include_router(users_router, prefix=settings.api_v1_prefix)
 
     return app
 

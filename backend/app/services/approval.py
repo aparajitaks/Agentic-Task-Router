@@ -45,6 +45,7 @@ async def create_approval(
     db: AsyncSession,
     *,
     task_id: uuid.UUID,
+    user_id: Optional[uuid.UUID] = None,
     ai_generated_draft: str,
     original_input: str,
     graph_checkpoint_state: dict,
@@ -65,6 +66,7 @@ async def create_approval(
     # 1. Create the approval record
     approval = Approval(
         task_id=task_id,
+        user_id=user_id,
         ai_generated_draft=ai_generated_draft,
         original_input=original_input,
         graph_checkpoint_state=graph_checkpoint_state,
@@ -92,11 +94,11 @@ async def create_approval(
     return approval
 
 
-async def get_approval_by_id(db: AsyncSession, approval_id: uuid.UUID) -> Approval:
+async def get_approval_by_id(db: AsyncSession, approval_id: uuid.UUID, user_id: uuid.UUID) -> Approval:
     """
-    Fetches an Approval by its UUID. Raises NotFoundError if absent.
+    Fetches an Approval by its UUID belonging to the user. Raises NotFoundError if absent.
     """
-    stmt = select(Approval).where(Approval.id == approval_id)
+    stmt = select(Approval).where(Approval.id == approval_id, Approval.user_id == user_id)
     result = await db.execute(stmt)
     approval = result.scalar_one_or_none()
     if not approval:
@@ -106,6 +108,7 @@ async def get_approval_by_id(db: AsyncSession, approval_id: uuid.UUID) -> Approv
 
 async def get_pending_approvals(
     db: AsyncSession,
+    user_id: uuid.UUID,
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[Approval], int]:
@@ -118,14 +121,20 @@ async def get_pending_approvals(
     count_stmt = (
         select(func.count())
         .select_from(Approval)
-        .where(Approval.status == ApprovalStatus.PENDING_APPROVAL)
+        .where(
+            Approval.status == ApprovalStatus.PENDING_APPROVAL,
+            Approval.user_id == user_id
+        )
     )
     count_result = await db.execute(count_stmt)
     total = count_result.scalar_one()
 
     stmt = (
         select(Approval)
-        .where(Approval.status == ApprovalStatus.PENDING_APPROVAL)
+        .where(
+            Approval.status == ApprovalStatus.PENDING_APPROVAL,
+            Approval.user_id == user_id
+        )
         .order_by(Approval.created_at.desc())
         .offset(offset)
         .limit(page_size)
@@ -138,6 +147,7 @@ async def get_pending_approvals(
 
 async def get_all_approvals(
     db: AsyncSession,
+    user_id: uuid.UUID,
     page: int = 1,
     page_size: int = 20,
     status_filter: Optional[ApprovalStatus] = None,
@@ -147,7 +157,7 @@ async def get_all_approvals(
     """
     offset = (page - 1) * page_size
 
-    where_clause = []
+    where_clause = [Approval.user_id == user_id]
     if status_filter:
         where_clause.append(Approval.status == status_filter)
 
@@ -169,6 +179,7 @@ async def get_all_approvals(
 async def process_approval_decision(
     db: AsyncSession,
     approval_id: uuid.UUID,
+    user_id: uuid.UUID,
     *,
     decision: ApprovalStatus,  # APPROVED | EDITED | REJECTED
     reviewer_id: str = "system",
@@ -187,7 +198,7 @@ async def process_approval_decision(
     - EDITED: Resume workflow using the human's corrected content.
     - REJECTED: Mark task as FAILED, record the reason. No resumption.
     """
-    approval = await get_approval_by_id(db, approval_id)
+    approval = await get_approval_by_id(db, approval_id, user_id)
 
     # Guard: Cannot act on a decision already made
     if approval.status != ApprovalStatus.PENDING_APPROVAL:
