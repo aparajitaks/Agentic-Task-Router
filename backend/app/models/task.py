@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import enum
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -34,6 +35,8 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    Integer,
+    DateTime
 )
 from sqlalchemy.types import Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -50,22 +53,23 @@ if TYPE_CHECKING:
 
 class TaskStatus(str, enum.Enum):
     """
-    Lifecycle states a Task moves through.
+    Lifecycle states a Task moves through in an async queue.
 
-    Inheriting from `str` means FastAPI/Pydantic can serialize the enum
-    as its string value rather than needing a custom encoder.
-
-    PENDING   → Task created, waiting to be picked up by a worker/agent
-    IN_PROGRESS → An agent has claimed and started working on it
-    COMPLETED → Work finished successfully
-    FAILED    → Processing failed; see related Log entries for details
-    CANCELLED → Manually cancelled before completion
+    PENDING    → Initial state upon creation via API
+    QUEUED     → Successfully pushed to Redis/Celery queue
+    PROCESSING → Celery worker picked it up and is executing the graph
+    COMPLETED  → Work finished successfully
+    FAILED     → Permanent failure (e.g., reached max retries)
+    RETRYING   → Temporary failure, re-queued for another attempt
+    CANCELLED  → Task aborted by user or system
     """
 
     PENDING = "pending"
-    IN_PROGRESS = "in_progress"
+    QUEUED = "queued"
+    PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    RETRYING = "retrying"
     CANCELLED = "cancelled"
 
 
@@ -119,6 +123,38 @@ class Task(Base, TimestampMixin):
         String(255),
         nullable=True,
         doc="The specific agent route selected by the router (e.g. 'summarizer_agent').",
+    )
+
+    # ── Async Execution Details ───────────────────────────────────────────────
+    retry_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+        doc="Number of times this task was retried due to worker/LLM failure.",
+    )
+
+    execution_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False),
+        nullable=True,
+        doc="When the Celery worker started processing this task.",
+    )
+
+    execution_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False),
+        nullable=True,
+        doc="When the Celery worker finished processing this task.",
+    )
+
+    worker_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        doc="The hostname/ID of the Celery worker processing the task.",
+    )
+
+    failure_reason: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        doc="Stores the reason for failure if the task hits FAILED state.",
     )
 
     status: Mapped[TaskStatus] = mapped_column(

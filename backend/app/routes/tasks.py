@@ -46,9 +46,10 @@ from app.services import (
     soft_delete_task,
     update_task,
 )
-from app.orchestrators.workflow_orchestrator import WorkflowOrchestrator
 from app.models.log import Log
 from sqlalchemy import select
+from app.workers.tasks import execute_agentic_workflow_task
+from app.models.task import Task
 
 logger = get_logger(__name__)
 
@@ -90,23 +91,33 @@ async def create_task_route(
 @router.post(
     "/execute",
     response_model=None,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_202_ACCEPTED,
     summary="Execute an AI Workflow",
-    description="Creates a task and immediately routes it through the LangGraph AI workflow.",
+    description="Creates a task and queues it for asynchronous LangGraph execution.",
 )
 async def execute_workflow_route(
     payload: TaskExecuteRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    orchestrator = WorkflowOrchestrator(db)
-    task = await orchestrator.execute_task(payload)
+    # 1. Create task in DB as QUEUED
+    task = Task(
+        title=payload.title,
+        description="Async AI Workflow Execution",
+        input_text=payload.input_text,
+        status=TaskStatus.QUEUED
+    )
+    db.add(task)
+    await db.commit()
+    await db.refresh(task)
+
+    # 2. Push to Celery/Redis queue
+    execute_agentic_workflow_task.delay(str(task.id))
     
-    # We must construct a TaskResponse to serialize correctly
     response_data = TaskResponse.model_validate(task).model_dump(mode="json")
     
     return success_response(
         data=response_data,
-        message="Workflow executed successfully.",
+        message="Workflow successfully queued for processing.",
     )
 
 

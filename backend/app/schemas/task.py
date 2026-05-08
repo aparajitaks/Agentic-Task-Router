@@ -148,6 +148,13 @@ class TaskResponse(BaseModel):
     input_text: Optional[str]
     output_text: Optional[str]
     route_taken: Optional[str]
+    
+    retry_count: int
+    execution_started_at: Optional[datetime]
+    execution_completed_at: Optional[datetime]
+    worker_id: Optional[str]
+    failure_reason: Optional[str]
+    
     status: TaskStatus
     assigned_agent_id: Optional[uuid.UUID]
     is_deleted: bool

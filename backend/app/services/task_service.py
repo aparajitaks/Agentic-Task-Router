@@ -89,11 +89,13 @@ async def _get_task_or_404(db: AsyncSession, task_id: uuid.UUID) -> Task:
 
 # Legal state transitions: current_status → set of allowed next statuses
 _ALLOWED_TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
-    TaskStatus.PENDING:      {TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED},
-    TaskStatus.IN_PROGRESS:  {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED},
-    TaskStatus.COMPLETED:    set(),           # Terminal state — no transitions out
-    TaskStatus.FAILED:       {TaskStatus.PENDING},  # Allow retry
-    TaskStatus.CANCELLED:    set(),           # Terminal state
+    TaskStatus.PENDING:      {TaskStatus.QUEUED, TaskStatus.CANCELLED},
+    TaskStatus.QUEUED:       {TaskStatus.PROCESSING, TaskStatus.CANCELLED},
+    TaskStatus.PROCESSING:   {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.RETRYING, TaskStatus.CANCELLED},
+    TaskStatus.RETRYING:     {TaskStatus.QUEUED, TaskStatus.PROCESSING, TaskStatus.CANCELLED},
+    TaskStatus.COMPLETED:    set(),                 # Terminal state
+    TaskStatus.FAILED:       {TaskStatus.QUEUED, TaskStatus.PENDING},  # Allow manual/auto retry
+    TaskStatus.CANCELLED:    set(),                 # Terminal state
 }
 
 

@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     openai_api_key: str = ""  # Loaded from OPENAI_API_KEY env var
     openai_model_name: str = "gpt-4o-mini" # Default model
 
+    # ── Redis & Celery ────────────────────────────────────────────────────────
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    celery_broker_url: str = "redis://localhost:6379/0"
+    celery_result_backend: str = "redis://localhost:6379/0"
+
     # ── Derived helpers ──────────────────────────────────────────────────────
     @property
     def cors_origins(self) -> List[str]:

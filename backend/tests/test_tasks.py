@@ -166,16 +166,16 @@ async def test_update_task_title(async_client):
 
 @pytest.mark.asyncio
 async def test_update_task_status_valid_transition(async_client):
-    """PATCH status from pending → in_progress should succeed."""
+    """PATCH status from pending → queued should succeed."""
     created = await _create_task(async_client)
     task_id = created["id"]
 
     response = await async_client.patch(
         f"/api/v1/tasks/{task_id}",
-        json={"status": "in_progress"},
+        json={"status": "queued"},
     )
     assert response.status_code == 200
-    assert response.json()["data"]["status"] == "in_progress"
+    assert response.json()["data"]["status"] == "queued"
 
 
 @pytest.mark.asyncio

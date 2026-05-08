@@ -1,78 +1,80 @@
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task, TaskStatus
+from app.execution_engine.engine import SyncWorkflowEngine
 
 pytestmark = pytest.mark.asyncio
 
-@patch("app.orchestrators.workflow_orchestrator.app_graph.ainvoke", new_callable=AsyncMock)
-async def test_execute_workflow_success(
-    mock_ainvoke,
+@patch("app.routes.tasks.execute_agentic_workflow_task.delay")
+async def test_execute_workflow_api_queues_task(
+    mock_delay,
     async_client: AsyncClient,
     db_session: AsyncSession
 ):
     """
-    Test executing an AI workflow through the API endpoint.
-    Mocks the LangGraph execution to avoid hitting the OpenAI API during tests.
+    Test that the POST /execute endpoint successfully creates a Task in the DB
+    with status QUEUED and calls the Celery task delay method.
     """
-    # Mock the returned state from LangGraph
-    mock_ainvoke.return_value = {
-        "route": "summarizer_agent",
-        "selected_agent": "summarizer_agent",
-        "final_output": "This is a mocked summary.",
-        "error_message": None
-    }
-
     payload = {
-        "title": "Test AI Task",
+        "title": "Test AI Task Queue",
         "input_text": "Please summarize this test data."
     }
 
     # Make the API call
     response = await async_client.post("/api/v1/tasks/execute", json=payload)
     
-    assert response.status_code == 200
+    assert response.status_code == 202
     data = response.json()["data"]
     assert data["title"] == payload["title"]
     assert data["input_text"] == payload["input_text"]
-    assert data["output_text"] == "This is a mocked summary."
-    assert data["route_taken"] == "summarizer_agent"
-    assert data["status"] == "completed"
+    assert data["status"] == "queued"
 
+    # Verify celery task was triggered
     task_id = data["id"]
-
-    # Verify logs were generated
-    logs_resp = await async_client.get(f"/api/v1/tasks/{task_id}/logs")
-    assert logs_resp.status_code == 200
-    logs_data = logs_resp.json()["data"]["logs"]
-    assert len(logs_data) > 0
-    assert logs_data[0]["level"] == "info"
-    assert "Workflow completed" in logs_data[0]["message"]
+    mock_delay.assert_called_once_with(task_id)
 
 
-@patch("app.orchestrators.workflow_orchestrator.app_graph.ainvoke", new_callable=AsyncMock)
-async def test_execute_workflow_failure(
+@patch("app.execution_engine.engine.app_graph.ainvoke", new_callable=AsyncMock)
+@patch("app.execution_engine.engine.AsyncSessionLocal")
+async def test_sync_workflow_engine_success(
+    mock_session_local,
     mock_ainvoke,
-    async_client: AsyncClient
+    db_session: AsyncSession
 ):
     """
-    Test handling an unknown route or execution failure.
+    Test the SyncWorkflowEngine (used by Celery) handles a successful graph execution.
     """
+    # Configure the mock to return our pytest db_session
+    mock_session_local.return_value.__aenter__.return_value = db_session
+    # 1. Create a raw queued task
+    task = Task(
+        title="Engine Test",
+        input_text="Do work",
+        status=TaskStatus.QUEUED
+    )
+    db_session.add(task)
+    await db_session.commit()
+    await db_session.refresh(task)
+
+    # 2. Mock graph
     mock_ainvoke.return_value = {
-        "route": "unknown",
-        "error_message": "Could not determine route."
+        "route": "summarizer_agent",
+        "selected_agent": "summarizer_agent",
+        "final_output": "Mocked sync engine output.",
+        "error_message": None
     }
 
-    payload = {
-        "title": "Test AI Task Failure",
-        "input_text": "Do something completely unrelated."
-    }
+    # 3. Run engine's async method directly since pytest-asyncio already has a loop
+    engine = SyncWorkflowEngine()
+    await engine._async_run_workflow(str(task.id), "worker-test-1")
 
-    response = await async_client.post("/api/v1/tasks/execute", json=payload)
-    
-    assert response.status_code == 200
-    data = response.json()["data"]
-    assert data["status"] == "failed"
-    assert data["output_text"] == "Could not determine route."
+    # 4. Verify DB updates
+    await db_session.refresh(task)
+    assert task.status == TaskStatus.COMPLETED
+    assert task.output_text == "Mocked sync engine output."
+    assert task.route_taken == "summarizer_agent"
+    assert task.worker_id == "worker-test-1"
+    assert task.execution_completed_at is not None
