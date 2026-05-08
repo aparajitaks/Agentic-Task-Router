@@ -43,13 +43,18 @@ settings = get_settings()
 # pool_size=10        — keep 10 connections alive at all times
 # max_overflow=20     — allow up to 20 extra temporary connections under load
 # echo               — log SQL statements only in DEBUG mode (never in prod)
+engine_args = {
+    "pool_pre_ping": True,
+    "echo": settings.debug,
+    "future": True,
+}
+if not settings.database_url.startswith("sqlite"):
+    engine_args["pool_size"] = 10
+    engine_args["max_overflow"] = 20
+
 engine = create_async_engine(
     settings.database_url,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-    echo=settings.debug,
-    future=True,
+    **engine_args
 )
 
 # ─────────────────────────────────────────────────────────────────────────────

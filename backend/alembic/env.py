@@ -61,6 +61,7 @@ def get_database_url() -> str:
     if url:
         # Alembic CLI is synchronous — replace async driver with sync driver
         url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+        url = url.replace("sqlite+aiosqlite://", "sqlite://")
         return url
     return config.get_main_option("sqlalchemy.url")
 
