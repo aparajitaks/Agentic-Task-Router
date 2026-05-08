@@ -21,6 +21,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
+from pydantic import SecretStr
 from app.config.settings import get_settings
 from app.core.logging import get_logger
 
@@ -47,7 +48,7 @@ def get_llm(
         model = model_name or settings.gemini_model_name
         return ChatGoogleGenerativeAI(
             model=model,
-            google_api_key=settings.gemini_api_key,
+            api_key=SecretStr(settings.gemini_api_key) if settings.gemini_api_key else None,
             temperature=temperature,
         )
         
@@ -58,7 +59,7 @@ def get_llm(
         model = model_name or settings.openai_model_name
         return ChatOpenAI(
             model=model,
-            openai_api_key=settings.openai_api_key,
+            api_key=SecretStr(settings.openai_api_key) if settings.openai_api_key else None,
             temperature=temperature,
         )
         
@@ -70,7 +71,7 @@ def get_llm(
         model = model_name or settings.groq_model_name
         return ChatGroq(
             model=model,
-            api_key=settings.groq_api_key,
+            api_key=SecretStr(settings.groq_api_key) if settings.groq_api_key else None,
             temperature=temperature,
         )
         

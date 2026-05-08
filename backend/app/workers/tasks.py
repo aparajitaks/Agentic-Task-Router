@@ -25,9 +25,26 @@ logger = get_logger(__name__)
 
 async def _async_poll_gmail():
     from app.ingestion.email_ingester import EmailIngester
+    from app.models.user import User
+    from sqlalchemy import select
+    
     async with AsyncSessionLocal() as db:
-        ingester = EmailIngester(db)
-        return await ingester.sync_unread_emails()
+        # Fetch all users to poll their respective Gmail accounts
+        stmt = select(User)
+        result = await db.execute(stmt)
+        users = result.scalars().all()
+        
+        total_processed = 0
+        for user in users:
+            try:
+                # Ingester is now scoped to a specific user
+                ingester = EmailIngester(db, user.id)
+                count = await ingester.sync_unread_emails()
+                total_processed += count
+            except Exception as e:
+                logger.error(f"Error polling Gmail for user {user.id}: {str(e)}")
+                
+        return total_processed
 
 class AgenticWorkflowTask(Task):
     """Base class for our tasks to handle common logic like retries."""

@@ -16,8 +16,9 @@ from langchain_core.tools import tool
 import ast
 import operator
 
+from typing import Callable, Any
 # Allowed safe operators
-_ALLOWED_OPERATORS = {
+_ALLOWED_OPERATORS: dict[type[ast.operator] | type[ast.unaryop], Callable[..., Any]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -37,9 +38,9 @@ def _safe_eval(node):
         else:
             raise ValueError(f"Unsupported operator: {op}")
     elif isinstance(node, ast.UnaryOp):  # <operator> <operand> e.g., -1
-        op = type(node.op)
-        if op in _ALLOWED_OPERATORS:
-            return _ALLOWED_OPERATORS[op](_safe_eval(node.operand))
+        op_type = type(node.op)
+        if op_type in _ALLOWED_OPERATORS:
+            return _ALLOWED_OPERATORS[op_type](_safe_eval(node.operand))
         else:
             raise ValueError(f"Unsupported operator: {op}")
     else:

@@ -38,7 +38,11 @@ def summarize_task(state: WorkflowState) -> dict:
         ]
         
     try:
-        response = llm_with_tools.invoke(messages)
+        # Invoke the LLM with user_id in metadata for tool execution
+        response = llm_with_tools.invoke(
+            messages,
+            config={"metadata": {"user_id": state.get("user_id")}}
+        )
         
         return {
             "messages": [response],

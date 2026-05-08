@@ -72,13 +72,15 @@ class SyncWorkflowEngine:
             # 3. Initialize LangGraph State
             initial_state: WorkflowState = {
                 "task_id": str(task.id),
+                "user_id": str(task.user_id),
                 "input_text": task.input_text or "",
                 "route": None,
                 "selected_agent": None,
                 "current_status": "Started by Worker",
                 "intermediate_steps": [],
                 "final_output": None,
-                "error_message": None
+                "error_message": None,
+                "messages": []
             }
 
             try:

@@ -41,8 +41,11 @@ def generate_reply_task(state: WorkflowState) -> dict:
         ]
     
     try:
-        # Invoke the LLM with the full message history (including tool responses)
-        response = llm_with_tools.invoke(messages)
+        # Invoke the LLM with user_id in metadata for tool execution
+        response = llm_with_tools.invoke(
+            messages,
+            config={"metadata": {"user_id": state.get("user_id")}}
+        )
         
         # We return a dict that LangGraph will use to update the state
         # The 'messages' key tells LangGraph to append this response to the history

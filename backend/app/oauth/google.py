@@ -97,12 +97,13 @@ class GoogleOAuthService:
             token_record = OAuthToken(provider="google", user_id=user_id)
             db.add(token_record)
 
-        token_record.access_token = creds.token
+        from typing import cast
+        token_record.access_token = cast(str, creds.token)
         if creds.refresh_token:
-            token_record.refresh_token = creds.refresh_token
+            token_record.refresh_token = cast(str, creds.refresh_token)
             
-        token_record.scopes = ",".join(creds.scopes) if creds.scopes else None
-        token_record.expires_at = creds.expiry
+        token_record.scopes = cast(Optional[str], ",".join(creds.scopes) if creds.scopes else None)
+        token_record.expires_at = cast(Optional[datetime], creds.expiry)
 
         await db.commit()
         await db.refresh(token_record)
@@ -137,8 +138,9 @@ class GoogleOAuthService:
             try:
                 creds.refresh(Request())
                 # Update the DB with the new access token
-                token_record.access_token = creds.token
-                token_record.expires_at = creds.expiry
+                from typing import cast
+                token_record.access_token = cast(str, creds.token)
+                token_record.expires_at = cast(Optional[datetime], creds.expiry)
                 await db.commit()
             except Exception as e:
                 raise ValidationException(f"Failed to refresh Google token: {str(e)}")

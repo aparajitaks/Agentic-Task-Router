@@ -48,9 +48,11 @@ def route_task(state: WorkflowState) -> WorkflowState:
         HumanMessage(content=f"INPUT TEXT:\n{state['input_text']}")
     ]
     
+    from typing import Literal, cast
+    
     try:
         # Invoke the LLM; it returns a RouteDecision Pydantic object
-        decision: RouteDecision = structured_llm.invoke(messages)
+        decision = cast(RouteDecision, structured_llm.invoke(messages))
         
         # Update state
         state["route"] = decision.route

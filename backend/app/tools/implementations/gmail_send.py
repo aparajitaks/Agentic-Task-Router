@@ -18,18 +18,20 @@ from langchain_core.tools import tool
 from googleapiclient.discovery import build
 import asyncio
 
+from langchain_core.runnables import RunnableConfig
 from app.oauth.google import GoogleOAuthService
 from app.db.session import AsyncSessionLocal
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-async def _send_email_async(to: str, subject: str, body: str) -> str:
+async def _send_email_async(to: str, subject: str, body: str, user_id: str) -> str:
     """Async helper to connect to DB and send email."""
+    import uuid
     try:
         oauth_service = GoogleOAuthService()
         async with AsyncSessionLocal() as db:
-            creds = await oauth_service.get_valid_credentials(db)
+            creds = await oauth_service.get_valid_credentials(db, uuid.UUID(user_id))
         
         service = build('gmail', 'v1', credentials=creds)
         
@@ -50,7 +52,7 @@ async def _send_email_async(to: str, subject: str, body: str) -> str:
         return f"Failed to send email: {str(e)}"
 
 @tool
-def gmail_send_tool(recipient: str, subject: str, body: str) -> str:
+def gmail_send_tool(recipient: str, subject: str, body: str, config: RunnableConfig) -> str:
     """
     Sends an email using the connected Gmail account.
     Use this to reply to users or send notifications.
@@ -59,13 +61,17 @@ def gmail_send_tool(recipient: str, subject: str, body: str) -> str:
     - subject: The subject line of the email.
     - body: The full text body of the email.
     """
-    logger.info(f"Agent attempting to send email to {recipient}")
+    user_id = config.get("metadata", {}).get("user_id")
+    if not user_id:
+        return "Error: user_id not found in tool configuration metadata."
+        
+    logger.info(f"Agent attempting to send email to {recipient} for user {user_id}")
     
     # Run the async helper synchronously inside the worker thread
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        result = loop.run_until_complete(_send_email_async(recipient, subject, body))
+        result = loop.run_until_complete(_send_email_async(recipient, subject, body, user_id))
         return result
     finally:
         loop.close()
