@@ -49,24 +49,27 @@ if TYPE_CHECKING:
     # so we avoid circular imports while still satisfying the type checker.
     from app.models.agent import Agent
     from app.models.log import Log
+    from app.models.approval import Approval
 
 
 class TaskStatus(str, enum.Enum):
     """
     Lifecycle states a Task moves through in an async queue.
 
-    PENDING    → Initial state upon creation via API
-    QUEUED     → Successfully pushed to Redis/Celery queue
-    PROCESSING → Celery worker picked it up and is executing the graph
-    COMPLETED  → Work finished successfully
-    FAILED     → Permanent failure (e.g., reached max retries)
-    RETRYING   → Temporary failure, re-queued for another attempt
-    CANCELLED  → Task aborted by user or system
+    PENDING           → Initial state upon creation via API
+    QUEUED            → Successfully pushed to Redis/Celery queue
+    PROCESSING        → Celery worker picked it up and is executing the graph
+    AWAITING_APPROVAL → Workflow paused; a human must review before proceeding
+    COMPLETED         → Work finished successfully
+    FAILED            → Permanent failure (e.g., reached max retries)
+    RETRYING          → Temporary failure, re-queued for another attempt
+    CANCELLED         → Task aborted by user or system
     """
 
     PENDING = "pending"
     QUEUED = "queued"
     PROCESSING = "processing"
+    AWAITING_APPROVAL = "awaiting_approval"
     COMPLETED = "completed"
     FAILED = "failed"
     RETRYING = "retrying"
@@ -195,6 +198,14 @@ class Task(Base, TimestampMixin):
         "Agent",
         back_populates="tasks",
         lazy="select",
+    )
+
+    approvals: Mapped[list[Approval]] = relationship(
+        "Approval",
+        back_populates="task",
+        cascade="all, delete-orphan",
+        lazy="select",
+        order_by="Approval.created_at.desc()",
     )
 
     # ── Composite Indexes ─────────────────────────────────────────────────────

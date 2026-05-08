@@ -7,6 +7,7 @@ from app.models.agent import Agent, AgentType
 from app.models.log import Log, LogLevel
 from app.models.gmail import OAuthToken, EmailThread, EmailMessage, IngestionLog
 from app.models.tool import ToolExecutionLog
+from app.models.approval import Approval, ApprovalStatus, ApprovalPolicy
 
 __all__ = [
     "Task",
@@ -20,4 +21,7 @@ __all__ = [
     "EmailMessage",
     "IngestionLog",
     "ToolExecutionLog",
+    "Approval",
+    "ApprovalStatus",
+    "ApprovalPolicy",
 ]
