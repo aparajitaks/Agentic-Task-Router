@@ -21,7 +21,7 @@ services:
       POSTGRES_PASSWORD: postgres
 
     ports:
-      - "5432:5432"                    # Map host:container so local tools can connect
+      - "5433:5432"                    # Map host:container so local tools can connect
 
     volumes:
       - postgres_data:/var/lib/postgresql/data   # Persist data across restarts
@@ -104,6 +104,45 @@ services:
 
     profiles:
       - migrate                       # Only runs with: docker compose --profile migrate up
+
+  # ── Redis (Message Broker & Result Backend) ──────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: agentic_router_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Celery Worker (Async Task Execution) ───────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: agentic_router_worker
+    restart: unless-stopped
+    command: celery -A app.celery_app.worker.celery_app worker --loglevel=info
+    environment:
+      APP_ENV: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/agentic_router
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from app.ai_services.llm import get_llm
+from app.ai_services.llm_provider import get_llm
 from app.prompts.agent_prompts import ROUTER_SYSTEM_PROMPT
 from app.state.workflow_state import WorkflowState
 

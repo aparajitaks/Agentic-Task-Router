@@ -58,9 +58,12 @@ class Settings(BaseSettings):
     # ── Logging ───────────────────────────────────────────────────────────────
     log_level: str = "INFO"
 
-    # ── AI / OpenAI ───────────────────────────────────────────────────────────
+    # ── AI / OpenAI / Gemini ──────────────────────────────────────────────────
     openai_api_key: str = ""  # Loaded from OPENAI_API_KEY env var
     openai_model_name: str = "gpt-4o-mini" # Default model
+    
+    gemini_api_key: str = "" # Loaded from GEMINI_API_KEY env var
+    gemini_model_name: str = "gemini-2.0-flash" # Default Gemini model
 
     # ── Redis & Celery ────────────────────────────────────────────────────────
     redis_host: str = "localhost"

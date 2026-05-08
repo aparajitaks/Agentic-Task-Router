@@ -41,7 +41,7 @@ from app.config.settings import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.db.session import close_db, init_db
-from app.routes import health_router, tasks_router
+from app.routes import health_router, tasks_router, gmail_router
 from app.utils.middleware import RequestLoggingMiddleware
 
 settings = get_settings()
@@ -128,6 +128,7 @@ def create_app() -> FastAPI:
 
     # All feature routes are versioned under /api/v1
     app.include_router(tasks_router, prefix=settings.api_v1_prefix)
+    app.include_router(gmail_router, prefix=settings.api_v1_prefix)
 
     return app
 
