@@ -130,17 +130,21 @@ class EmailIngester:
         return processed_count
 
     async def _get_or_create_thread(self, thread_id: str, subject: str) -> EmailThread:
-        stmt = select(EmailThread).where(EmailThread.gmail_thread_id == thread_id)
+        stmt = select(EmailThread).where(
+            EmailThread.gmail_thread_id == thread_id,
+            EmailThread.user_id == self.user_id
+        )
         result = await self.db.execute(stmt)
         thread = result.scalar_one_or_none()
         if not thread:
-            thread = EmailThread(gmail_thread_id=thread_id, subject=subject)
+            thread = EmailThread(gmail_thread_id=thread_id, subject=subject, user_id=self.user_id)
             self.db.add(thread)
             await self.db.flush()
         return thread
 
     async def _log_ingestion(self, status: str, count: int = 0, error: str = None) -> None:
         log = IngestionLog(
+            user_id=self.user_id,
             status=status,
             emails_fetched=count,
             error_message=error

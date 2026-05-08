@@ -51,6 +51,7 @@ class EmailThread(Base, TimestampMixin):
     __tablename__ = "email_threads"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     gmail_thread_id: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     subject: Mapped[str | None] = mapped_column(Text, nullable=True)
     
@@ -88,6 +89,7 @@ class IngestionLog(Base, TimestampMixin):
     __tablename__ = "ingestion_logs"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False) # e.g. "SUCCESS", "FAILED"
     emails_fetched: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

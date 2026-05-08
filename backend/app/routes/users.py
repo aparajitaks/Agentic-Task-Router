@@ -38,9 +38,9 @@ class UserUpdateRequest(BaseModel):
 
 @router.get("/me")
 async def get_current_user_profile(
-    user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
-    return success_response(data=user, message="Profile retrieved")
+    return success_response(data=current_user, message="Profile retrieved")
 
 @router.post("/sync-user")
 async def sync_clerk_user(
@@ -71,19 +71,19 @@ async def sync_clerk_user(
 @router.patch("/me")
 async def update_user_profile(
     body: UserUpdateRequest,
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     
     if body.full_name is not None:
-        user.full_name = body.full_name
+        current_user.full_name = body.full_name
     if body.has_completed_onboarding is not None:
-        user.has_completed_onboarding = body.has_completed_onboarding
+        current_user.has_completed_onboarding = body.has_completed_onboarding
     if body.preferences is not None:
-        current_prefs = user.preferences if isinstance(user.preferences, dict) else {}
-        user.preferences = {**current_prefs, **body.preferences}
+        current_prefs = current_user.preferences if isinstance(current_user.preferences, dict) else {}
+        current_user.preferences = {**current_prefs, **body.preferences}
         
     await db.commit()
-    await db.refresh(user)
+    await db.refresh(current_user)
     
-    return success_response(data=user, message="Profile updated")
+    return success_response(data=current_user, message="Profile updated")
