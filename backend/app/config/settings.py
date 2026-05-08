@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     
     gemini_api_key: str = "" # Loaded from GEMINI_API_KEY env var
     gemini_model_name: str = "gemini-2.0-flash" # Default Gemini model
+    
+    groq_api_key: str = "" # Loaded from GROQ_API_KEY env var
+    groq_model_name: str = "llama-3.3-70b-versatile" # Default Groq model
 
     # ── Redis & Celery ────────────────────────────────────────────────────────
     redis_host: str = "localhost"

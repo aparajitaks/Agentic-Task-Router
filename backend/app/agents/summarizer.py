@@ -13,32 +13,42 @@ HOW IT CONNECTS
 """
 
 from langchain_core.messages import SystemMessage, HumanMessage
-
 from app.ai_services.llm_provider import get_llm
 from app.prompts.agent_prompts import SUMMARIZER_SYSTEM_PROMPT
 from app.state.workflow_state import WorkflowState
+from app.tools.registry import get_all_tools
 
-
-def summarize_task(state: WorkflowState) -> WorkflowState:
+def summarize_task(state: WorkflowState) -> dict:
     """
     Summarizer Agent Node Function.
+    Now equipped with tool calling capabilities!
     """
-    llm = get_llm(temperature=0.3)  # Slight creativity for better summaries
+    llm = get_llm(temperature=0.0)
     
-    messages = [
-        SystemMessage(content=SUMMARIZER_SYSTEM_PROMPT),
-        HumanMessage(content=f"Please summarize this:\n{state['input_text']}")
-    ]
+    # Bind tools to the LLM
+    tools = get_all_tools()
+    llm_with_tools = llm.bind_tools(tools)
     
-    try:
-        response = llm.invoke(messages)
+    # Initialize messages if empty
+    messages = state.get("messages", [])
+    if not messages:
+        messages = [
+            SystemMessage(content=SUMMARIZER_SYSTEM_PROMPT),
+            HumanMessage(content=f"Please summarize this input:\n{state.get('input_text', '')}")
+        ]
         
-        # Update state with the result
-        state["final_output"] = response.content
-        state["current_status"] = "Summarization Complete"
+    try:
+        response = llm_with_tools.invoke(messages)
+        
+        return {
+            "messages": [response],
+            "final_output": response.content,
+            "current_status": "Summarization Complete",
+            "selected_agent": "summarizer_agent"
+        }
         
     except Exception as e:
-        state["error_message"] = f"Summarizer failed: {str(e)}"
-        state["current_status"] = "Execution Failed"
-        
-    return state
+        return {
+            "error_message": f"Summarizer failed: {str(e)}",
+            "current_status": "Execution Failed"
+        }

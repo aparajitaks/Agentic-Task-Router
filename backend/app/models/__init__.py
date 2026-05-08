@@ -6,6 +6,7 @@ from app.models.task import Task, TaskStatus
 from app.models.agent import Agent, AgentType
 from app.models.log import Log, LogLevel
 from app.models.gmail import OAuthToken, EmailThread, EmailMessage, IngestionLog
+from app.models.tool import ToolExecutionLog
 
 __all__ = [
     "Task",
@@ -18,4 +19,5 @@ __all__ = [
     "EmailThread",
     "EmailMessage",
     "IngestionLog",
+    "ToolExecutionLog",
 ]

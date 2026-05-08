@@ -14,7 +14,8 @@ HOW IT CONNECTS
     Read/Updated by every agent in `app/agents/`.
 """
 
-from typing import TypedDict, Optional, Any
+from typing import TypedDict, Optional, Any, Annotated
+from langgraph.graph.message import add_messages
 
 class WorkflowState(TypedDict):
     """
@@ -29,6 +30,7 @@ class WorkflowState(TypedDict):
     - intermediate_steps: Stores intermediate thoughts or tool calls.
     - final_output: The final result to return to the user.
     - error_message: Holds error details if a node fails.
+    - messages: LangGraph standard message array for ToolNode execution.
     """
     task_id: str
     input_text: str
@@ -38,3 +40,4 @@ class WorkflowState(TypedDict):
     intermediate_steps: list[dict[str, Any]]
     final_output: Optional[str]
     error_message: Optional[str]
+    messages: Annotated[list, add_messages]

@@ -20,6 +20,7 @@ HOW IT CONNECTS
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from app.config.settings import get_settings
 from app.core.logging import get_logger
 
@@ -27,8 +28,8 @@ settings = get_settings()
 logger = get_logger(__name__)
 
 # Switch this to change the default provider across the entire system.
-# Options: "gemini", "openai"
-DEFAULT_PROVIDER = "gemini"
+# Options: "gemini", "openai", "groq"
+DEFAULT_PROVIDER = "groq"
 
 def get_llm(
     temperature: float = 0.0, 
@@ -58,6 +59,18 @@ def get_llm(
         return ChatOpenAI(
             model=model,
             openai_api_key=settings.openai_api_key,
+            temperature=temperature,
+        )
+        
+    elif provider == "groq":
+        if not settings.groq_api_key:
+            logger.warning("GROQ_API_KEY is not set. Falling back to Gemini if available.")
+            return get_llm(temperature, provider="gemini")
+            
+        model = model_name or settings.groq_model_name
+        return ChatGroq(
+            model=model,
+            api_key=settings.groq_api_key,
             temperature=temperature,
         )
         
