@@ -1,0 +1,53 @@
+# .gitignore — Agentic Task Router
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.eggs/
+*.egg-info/
+dist/
+build/
+*.egg
+.installed.cfg
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Environment Variables ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+!.env.example     # Keep the example file for documentation
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+coverage_html/
+htmlcov/
+
+# ── Alembic ───────────────────────────────────────────────────────────────────
+# Do NOT ignore alembic/versions — they are source-controlled migration scripts
+# Only ignore auto-generated cache
+alembic/__pycache__/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# Ignore local docker override files
+docker-compose.override.yml
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/

@@ -1,0 +1,29 @@
+# pyrefly.toml
+# ─────────────────────────────────────────────────────────────────────────────
+# Pyrefly project-level configuration.
+# Pyrefly reads this file from the project root and uses it as the
+# authoritative source for the Python interpreter, overriding any heuristics.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Point Pyrefly at the project's virtual environment.
+# This ensures site-packages from requirements.txt (pytest_asyncio, fastapi,
+# sqlalchemy, pydantic, etc.) are visible to the type checker.
+python_interpreter = "backend/.venv/bin/python3"
+
+# ── Source root ───────────────────────────────────────────────────────────────
+# Tell Pyrefly that `backend/` is the root from which Python packages are
+# imported. Without this, Pyrefly infers the workspace root and cannot resolve
+# `app.config.settings`, `app.db.base`, `app.main`, etc.
+search_path = ["backend"]
+
+# Include only the app and test source directories in type checking.
+project_includes = ["backend/app", "backend/tests"]
+
+# Never analyse the venv, migrations, or cache directories.
+project_excludes = [
+  "backend/.venv",
+  "backend/alembic/versions",
+  "**/__pycache__",
+  "**/.pytest_cache",
+]
+

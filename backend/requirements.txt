@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# requirements.txt — Agentic Task Router Backend
+# ─────────────────────────────────────────────────────────────────────────────
+# Pin exact versions to ensure reproducible builds across local dev, CI, and prod.
+# Run:  pip install -r requirements.txt
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Web Framework ─────────────────────────────────────────────────────────────
+fastapi==0.115.5              # Modern async web framework
+uvicorn[standard]==0.32.1     # ASGI server (includes uvloop + httptools for speed)
+
+# ── Database (Async) ──────────────────────────────────────────────────────────
+sqlalchemy==2.0.36            # ORM with native async support
+asyncpg==0.30.0               # Fastest async PostgreSQL driver
+alembic==1.14.0               # Database migration tool
+
+# ── Settings & Validation ─────────────────────────────────────────────────────
+pydantic==2.10.2              # Data validation (v2 — uses Rust-powered core)
+pydantic-settings==2.6.1     # Load settings from .env files
+
+# ── HTTP Client (for future agent integrations) ───────────────────────────────
+httpx==0.27.2                 # Async HTTP client (replaces requests in async code)
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==8.3.4
+pytest-asyncio==0.24.0        # Run async test functions
+pytest-cov==6.0.0             # Coverage reports
+aiosqlite==0.20.0             # Async SQLite driver — used by conftest for in-memory test DB
+
+# ── Development & Code Quality ────────────────────────────────────────────────
+ruff==0.8.4                   # Ultra-fast Python linter + formatter (replaces flake8, isort, black)
+mypy==1.13.0                  # Static type checking

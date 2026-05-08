@@ -1,0 +1,114 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml — Agentic Task Router
+# ─────────────────────────────────────────────────────────────────────────────
+# Run the full stack with:   docker compose up --build
+# Run in background with:    docker compose up -d --build
+# Stop everything:           docker compose down
+# Destroy volumes too:       docker compose down -v
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL Database ────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine          # Alpine = smaller image, same Postgres
+    container_name: agentic_router_db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: agentic_router
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5432:5432"                    # Map host:container so local tools can connect
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # Persist data across restarts
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agentic_router"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── FastAPI Backend ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend              # Path to the Dockerfile
+      dockerfile: Dockerfile
+      target: runtime                 # Use the runtime stage of the multi-stage build
+
+    container_name: agentic_router_api
+    restart: unless-stopped
+
+    # Override CMD to enable hot-reload in development
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/app
+
+    environment:
+      APP_ENV: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/agentic_router
+      SECRET_KEY: dev-secret-key-replace-in-production
+      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:8080"
+      LOG_LEVEL: INFO
+
+    ports:
+      - "8000:8000"                   # FastAPI accessible at http://localhost:8000
+
+    volumes:
+      # Mount source code for hot-reload in development
+      - ./backend:/app
+
+    depends_on:
+      db:
+        condition: service_healthy    # Wait for DB health check before starting
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ── Alembic Migration Runner ───────────────────────────────────────────────
+  # Run migrations manually with:
+  #   docker compose run --rm migrate
+  # This is separate from the backend to make migration runs explicit.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+
+    container_name: agentic_router_migrate
+    restart: "no"                     # Run once and exit
+
+    command: alembic upgrade head     # Apply all pending migrations
+
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/agentic_router
+
+    volumes:
+      - ./backend:/app
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    profiles:
+      - migrate                       # Only runs with: docker compose --profile migrate up
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Named Volumes
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    name: agentic_router_postgres_data
