@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.approval import Approval, ApprovalStatus
 from app.models.task import Task, TaskStatus
 from app.core.logging import get_logger
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import NotFoundException, ValidationException
 
 logger = get_logger(__name__)
 
@@ -100,7 +100,7 @@ async def get_approval_by_id(db: AsyncSession, approval_id: uuid.UUID) -> Approv
     result = await db.execute(stmt)
     approval = result.scalar_one_or_none()
     if not approval:
-        raise NotFoundError(f"Approval {approval_id} not found.")
+        raise NotFoundException("Approval", approval_id)
     return approval
 
 
@@ -191,20 +191,20 @@ async def process_approval_decision(
 
     # Guard: Cannot act on a decision already made
     if approval.status != ApprovalStatus.PENDING_APPROVAL:
-        raise ValidationError(
+        raise ValidationException(
             f"Approval {approval_id} has already been decided (status={approval.status.value}). "
             f"Cannot re-process a closed approval."
         )
 
     # Guard: EDITED requires content
     if decision == ApprovalStatus.EDITED and not human_edited_content:
-        raise ValidationError(
+        raise ValidationException(
             "An edited approval must include `human_edited_content`."
         )
 
     # Guard: REJECTED requires a reason (enterprise audit requirement)
     if decision == ApprovalStatus.REJECTED and not rejection_reason:
-        raise ValidationError(
+        raise ValidationException(
             "A rejected approval must include a `rejection_reason` for audit purposes."
         )
 
