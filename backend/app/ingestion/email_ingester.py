@@ -142,7 +142,7 @@ class EmailIngester:
             await self.db.flush()
         return thread
 
-    async def _log_ingestion(self, status: str, count: int = 0, error: str = None) -> None:
+    async def _log_ingestion(self, status: str, count: int = 0, error: str | None = None) -> None:
         log = IngestionLog(
             user_id=self.user_id,
             status=status,
