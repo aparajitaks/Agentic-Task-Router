@@ -25,8 +25,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, JSON, String, Text
+from sqlalchemy.types import Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -64,14 +64,14 @@ class Log(Base):
 
     # ── Primary Key ───────────────────────────────────────────────────────────
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(),
         primary_key=True,
         default=uuid.uuid4,
     )
 
     # ── Foreign Key ───────────────────────────────────────────────────────────
     task_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(),
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -101,7 +101,7 @@ class Log(Base):
 
     # ── Flexible Context Storage ──────────────────────────────────────────────
     metadata_json: Mapped[dict | None] = mapped_column(
-        JSONB,
+        JSON,
         nullable=True,
         doc="Arbitrary JSON context (tool outputs, agent thoughts, etc.).",
     )

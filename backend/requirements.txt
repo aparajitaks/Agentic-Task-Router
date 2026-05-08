@@ -13,6 +13,7 @@ uvicorn[standard]==0.32.1     # ASGI server (includes uvloop + httptools for spe
 sqlalchemy==2.0.36            # ORM with native async support
 asyncpg==0.30.0               # Fastest async PostgreSQL driver
 alembic==1.14.0               # Database migration tool
+greenlet>=3.1.1               # Required by SQLAlchemy async on Python 3.13+
 
 # ── Settings & Validation ─────────────────────────────────────────────────────
 pydantic==2.10.2              # Data validation (v2 — uses Rust-powered core)

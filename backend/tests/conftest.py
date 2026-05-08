@@ -1,19 +1,14 @@
 """
 tests/conftest.py
 ─────────────────────────────────────────────────────────────────────────────
-WHY THIS FILE EXISTS
-    Pytest fixtures are the building blocks of a good test suite.  conftest.py
-    is automatically loaded by pytest and its fixtures are available to ALL
-    test files in the same directory and below.
+pytest fixtures for the Agentic Task Router test suite.
 
-WHAT IT DOES
-    - Creates a separate in-memory SQLite database for tests (no real Postgres needed)
-    - Provides an `async_client` fixture — an httpx.AsyncClient that talks to the
-      test FastAPI app through real HTTP requests
-    - Ensures each test runs in its own isolated database transaction
-
-HOW IT CONNECTS
-    tests/test_tasks.py  → uses `async_client` and `db_session` fixtures
+Key design decisions:
+- Uses SQLite in-memory (aiosqlite) for speed — no real Postgres needed
+- Each test gets freshly created + dropped tables (function scope)
+- FastAPI's get_db dependency is overridden to use the test session
+- The deprecated custom event_loop fixture is removed; pytest-asyncio 0.24+
+  manages the event loop automatically via asyncio_mode = auto
 """
 
 import asyncio
@@ -32,8 +27,8 @@ from app.main import create_app
 # ─────────────────────────────────────────────────────────────────────────────
 # Test Database Setup
 # ─────────────────────────────────────────────────────────────────────────────
-# We use SQLite in-memory for speed.  The `check_same_thread=False` and
-# `StaticPool` are required for SQLite to work with async SQLAlchemy.
+# SQLite in-memory for speed.
+# StaticPool + check_same_thread=False are required for async SQLite.
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 test_engine = create_async_engine(
@@ -51,20 +46,17 @@ TestSessionLocal = async_sessionmaker(
 )
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create a single event loop for the entire test session."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
+# ─────────────────────────────────────────────────────────────────────────────
+# Fixtures
+# ─────────────────────────────────────────────────────────────────────────────
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
 async def setup_database():
     """
     Create all tables before each test, drop them after.
 
-    `autouse=True` means this runs automatically for every test function.
+    autouse=True → runs automatically for every test function.
+    scope="function" → each test gets a clean slate (no cross-test pollution).
     """
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -75,7 +67,7 @@ async def setup_database():
 
 @pytest_asyncio.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Provides a clean database session for each test."""
+    """Provides a clean database session per test."""
     async with TestSessionLocal() as session:
         yield session
 
@@ -85,8 +77,8 @@ async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, 
     """
     Provides an async HTTP test client wired to the FastAPI app.
 
-    Overrides the `get_db` dependency so routes use the test database session
-    instead of the real PostgreSQL database.
+    Overrides get_db so routes use the test DB session instead of
+    the real PostgreSQL database.
     """
     app = create_app()
 

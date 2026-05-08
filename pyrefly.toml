@@ -8,7 +8,7 @@
 # Point Pyrefly at the project's virtual environment.
 # This ensures site-packages from requirements.txt (pytest_asyncio, fastapi,
 # sqlalchemy, pydantic, etc.) are visible to the type checker.
-python_interpreter = "backend/.venv/bin/python3"
+python_interpreter = "backend/.venv/bin/python3.13"
 
 # ── Source root ───────────────────────────────────────────────────────────────
 # Tell Pyrefly that `backend/` is the root from which Python packages are

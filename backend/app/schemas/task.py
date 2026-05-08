@@ -26,7 +26,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from app.models.task import TaskStatus
 
@@ -135,8 +135,14 @@ class TaskResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat() + "Z",
-            uuid.UUID: str,
-        }
+    @field_serializer("id", "assigned_agent_id")
+    def serialize_uuid(self, value: Optional[uuid.UUID]) -> Optional[str]:
+        """Serialise UUID fields as plain strings in JSON responses."""
+        return str(value) if value is not None else None
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_datetime(self, value: datetime) -> str:
+        """Serialise datetime fields as ISO-8601 strings with UTC 'Z' suffix."""
+        return value.isoformat() + "Z"
+
+

@@ -35,7 +35,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.types import Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -83,7 +83,7 @@ class Task(Base, TimestampMixin):
     #   - No enumeration attacks (attacker can't guess /tasks/1, /tasks/2)
     #   - Safe to generate client-side or in a distributed system
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(),
         primary_key=True,
         default=uuid.uuid4,
         doc="Globally unique task identifier.",
@@ -112,7 +112,7 @@ class Task(Base, TimestampMixin):
 
     # ── Agent Assignment (nullable until an agent claims the task) ────────────
     assigned_agent_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(),
         ForeignKey("agents.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
