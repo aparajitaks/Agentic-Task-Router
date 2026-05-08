@@ -115,6 +115,22 @@ class TaskUpdate(BaseModel):
 # Response Schemas (what the API returns)
 # ─────────────────────────────────────────────────────────────────────────────
 
+class TaskExecuteRequest(BaseModel):
+    """
+    Schema for executing a task via POST /api/v1/tasks/execute.
+    """
+    input_text: str = Field(
+        ...,
+        min_length=1,
+        examples=["Summarize this email about Q1 sales..."],
+        description="Raw input text to be routed and processed.",
+    )
+    title: str = Field(
+        default="Auto-generated Task",
+        description="Optional title for the task record.",
+    )
+
+
 class TaskResponse(BaseModel):
     """
     Schema for a single Task returned by the API.
@@ -129,6 +145,9 @@ class TaskResponse(BaseModel):
     id: uuid.UUID
     title: str
     description: Optional[str]
+    input_text: Optional[str]
+    output_text: Optional[str]
+    route_taken: Optional[str]
     status: TaskStatus
     assigned_agent_id: Optional[uuid.UUID]
     is_deleted: bool

@@ -38,7 +38,7 @@ from app.core.logging import get_logger
 from app.core.responses import paginated_response, success_response
 from app.db.session import get_db
 from app.models.task import TaskStatus
-from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
+from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate, TaskExecuteRequest
 from app.services import (
     create_task,
     get_all_tasks,
@@ -46,6 +46,9 @@ from app.services import (
     soft_delete_task,
     update_task,
 )
+from app.orchestrators.workflow_orchestrator import WorkflowOrchestrator
+from app.models.log import Log
+from sqlalchemy import select
 
 logger = get_logger(__name__)
 
@@ -78,6 +81,34 @@ async def create_task_route(
         data=task.model_dump(mode="json"),
         message="Task created successfully.",
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /api/v1/tasks/execute — Execute AI Workflow
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/execute",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+    summary="Execute an AI Workflow",
+    description="Creates a task and immediately routes it through the LangGraph AI workflow.",
+)
+async def execute_workflow_route(
+    payload: TaskExecuteRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    orchestrator = WorkflowOrchestrator(db)
+    task = await orchestrator.execute_task(payload)
+    
+    # We must construct a TaskResponse to serialize correctly
+    response_data = TaskResponse.model_validate(task).model_dump(mode="json")
+    
+    return success_response(
+        data=response_data,
+        message="Workflow executed successfully.",
+    )
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -130,6 +161,67 @@ async def get_task_route(
         data=task.model_dump(mode="json"),
         message="Task retrieved successfully.",
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/tasks/{task_id}/workflow — Get Workflow State
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{task_id}/workflow",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+    summary="Get Task Workflow State",
+    description="Returns the task including its AI input, output, and routing details.",
+)
+async def get_task_workflow_route(
+    task_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    task = await get_task_by_id(db, task_id)
+    return success_response(
+        data=task.model_dump(mode="json"),
+        message="Workflow state retrieved.",
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/tasks/{task_id}/logs — Get Execution Logs
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{task_id}/logs",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+    summary="Get Task Execution Logs",
+    description="Returns the immutable audit trail for a specific task.",
+)
+async def get_task_logs_route(
+    task_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    # Basic query to fetch logs ordered by timestamp
+    query = select(Log).where(Log.task_id == task_id).order_by(Log.timestamp.asc())
+    result = await db.execute(query)
+    logs = result.scalars().all()
+    
+    logs_data = [
+        {
+            "id": str(log.id),
+            "message": log.message,
+            "level": log.level.value,
+            "source": log.source,
+            "metadata": log.metadata_json,
+            "timestamp": log.timestamp.isoformat() + "Z"
+        }
+        for log in logs
+    ]
+    
+    return success_response(
+        data={"logs": logs_data},
+        message="Logs retrieved successfully.",
+    )
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

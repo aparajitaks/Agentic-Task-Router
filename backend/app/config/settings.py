@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # ── Logging ───────────────────────────────────────────────────────────────
     log_level: str = "INFO"
 
+    # ── AI / OpenAI ───────────────────────────────────────────────────────────
+    openai_api_key: str = ""  # Loaded from OPENAI_API_KEY env var
+    openai_model_name: str = "gpt-4o-mini" # Default model
+
     # ── Derived helpers ──────────────────────────────────────────────────────
     @property
     def cors_origins(self) -> List[str]:
