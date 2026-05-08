@@ -25,7 +25,8 @@ import {
   Wrench, 
   TerminalSquare, 
   Settings,
-  ChevronLeft
+  ChevronLeft,
+  ShieldCheck
 } from "lucide-react";
 import { useUiStore } from "@/store/use-ui-store";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ import { Button } from "@/components/ui/button";
 const NAV_ITEMS = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Workflows", href: "/workflows", icon: Workflow },
+  { name: "Approvals", href: "/approvals", icon: ShieldCheck },
   { name: "Emails", href: "/emails", icon: Mail },
   { name: "Agents", href: "/agents", icon: Bot },
   { name: "Tools", href: "/tools", icon: Wrench },
