@@ -38,8 +38,10 @@ from app.core.logging import get_logger
 from app.core.responses import paginated_response, success_response
 from app.db.session import get_db
 from app.models.task import TaskStatus, Task
+from app.models.user import User
 from app.core.auth import get_current_user
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate, TaskExecuteRequest
+from app.workers.tasks import execute_agentic_workflow_task
 from app.services import (
     create_task,
     get_all_tasks,
