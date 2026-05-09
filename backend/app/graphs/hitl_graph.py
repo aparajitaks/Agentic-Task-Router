@@ -166,7 +166,7 @@ def should_require_human_review(state: WorkflowState) -> str:
     return "__end__"
 
 
-def build_hitl_graph():
+def build_hitl_graph(is_resume: bool = False):
     """
     Builds the HITL-enabled LangGraph workflow.
 
@@ -174,6 +174,7 @@ def build_hitl_graph():
     - After the reply_generator_agent produces output, the flow is
       intercepted by `human_review_node` before ending.
     - The summarizer_agent bypasses review (it only summarizes, doesn't act).
+    - If `is_resume` is True, `interrupt_before` is disabled so execution can continue.
     """
     workflow = StateGraph(WorkflowState)
 
@@ -226,9 +227,10 @@ def build_hitl_graph():
 
     # Use MemorySaver as a transient checkpointer to enable interrupt_before
     # The actual persistence across Celery workers is handled by our DB checkpoints
+    interrupt_nodes = [] if is_resume else ["send_email_node"]
     return workflow.compile(
         checkpointer=MemorySaver(),
-        interrupt_before=["send_email_node"]
+        interrupt_before=interrupt_nodes
     )
 
 
