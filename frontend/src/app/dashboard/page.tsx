@@ -106,6 +106,11 @@ export default function WorkspaceDashboard() {
   }, [isGmailConnected, isDemoMode, setGmailConnected]);
 
   const handleSync = async () => {
+    if (!isGmailConnected && !isDemoMode) {
+      console.warn("Sync aborted: Gmail not connected.");
+      return;
+    }
+
     setIsSyncing(true);
     
     if (isDemoMode && !isGmailConnected) {
