@@ -35,9 +35,8 @@ export default function DashboardLayout({
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const res: any = await apiClient.get("/gmail/status", {
-          headers: { "X-Clerk-ID": "demo_user_123" }
-        });
+        // x-clerk-id is injected automatically by the Axios interceptor
+        const res: any = await apiClient.get("/gmail/status");
         setGmailConnected(res.connected);
       } catch (error) {
         console.error("Failed to check Gmail status", error);

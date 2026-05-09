@@ -77,25 +77,31 @@ async def execute_workflow_route(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    # 1. Create task in DB as QUEUED
-    task = Task(
-        title=payload.title,
-        description="Async AI Workflow Execution",
-        input_text=payload.input_text,
-        status=TaskStatus.QUEUED,
-        user_id=current_user.id
-    )
-    db.add(task)
-    await db.commit()
-    await db.refresh(task)
+    try:
+        # 1. Create task in DB as QUEUED
+        task = Task(
+            title=payload.title,
+            description="Async AI Workflow Execution",
+            input_text=payload.input_text,
+            status=TaskStatus.QUEUED,
+            user_id=current_user.id
+        )
+        db.add(task)
+        await db.commit()
+        await db.refresh(task)
 
-    # 2. Push to Celery/Redis queue
-    execute_agentic_workflow_task.delay(str(task.id))
-    
-    return success_response(
-        data=TaskResponse.model_validate(task).model_dump(mode="json"),
-        message="Workflow successfully queued for processing.",
-    )
+        # 2. Push to Celery/Redis queue
+        execute_agentic_workflow_task.delay(str(task.id))
+        
+        return success_response(
+            data=TaskResponse.model_validate(task).model_dump(mode="json"),
+            message="Workflow successfully queued for processing.",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Failed to queue workflow: %s", str(e))
+        from app.core.exceptions import ValidationException
+        raise ValidationException("Task creation failed: Could not queue the workflow.")
 
 
 @router.get(

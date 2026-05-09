@@ -10,6 +10,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useSearchParams } from "next/navigation";
@@ -60,6 +61,7 @@ const DATA = [
 export default function WorkspaceDashboard() {
   const { isGmailConnected, isDemoMode, setGmailConnected } = useAuthStore();
   const searchParams = useSearchParams();
+  const router = useRouter();
   
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -95,20 +97,18 @@ export default function WorkspaceDashboard() {
       }
       
       try {
-        const config = { headers: { "X-Clerk-ID": "demo_user_123" } };
-        
-        console.log("Fetching dashboard stats...");
-        const gmailRes: any = await apiClient.get("/gmail/status", config);
+        // No manual headers needed — the Axios interceptor injects x-clerk-id automatically
+        const gmailRes: any = await apiClient.get("/gmail/status");
         setGmailConnected(gmailRes.connected);
         
         if (gmailRes.connected) {
           const [approvalsRes, userRes] = await Promise.all([
-            apiClient.get<any, any>("/approvals/pending", config),
-            apiClient.get<any, any>("/users/me", config)
+            apiClient.get<any, any>("/approvals/pending"),
+            apiClient.get<any, any>("/users/me")
           ]);
           
           setPendingApprovals(approvalsRes.total || 0);
-          setUserEmail(userRes.email);
+          setUserEmail(userRes.email ?? "Connected");
         }
       } catch (e: any) {
         console.error("Dashboard data fetch failed", e);
@@ -136,11 +136,21 @@ export default function WorkspaceDashboard() {
     }
 
     try {
-      await apiClient.post("/gmail/sync", {}, {
-        headers: { "X-Clerk-ID": "demo_user_123" }
-      });
-    } catch (e) {
+      const res: any = await apiClient.post("/gmail/sync", {});
+      const count = res?.emails_processed ?? 0;
+      const syncError = res?.error;
+      if (syncError) {
+        console.warn("Sync completed with error:", syncError);
+        setFetchError(`Sync issue: ${syncError}`);
+      } else {
+        console.log(`Sync complete: ${count} emails processed.`);
+        // Refresh gmail status after successful sync
+        const statusRes: any = await apiClient.get("/gmail/status");
+        setGmailConnected(statusRes.connected);
+      }
+    } catch (e: any) {
       console.error("Sync failed", e);
+      setFetchError(e.userMessage || e.message || "Sync request failed. Check backend connection.");
     } finally {
       setIsSyncing(false);
     }
@@ -178,8 +188,14 @@ export default function WorkspaceDashboard() {
             size="sm" 
             variant="outline" 
             className="border-amber-500/20 hover:bg-amber-500/20 text-amber-600"
-            onClick={() => {
+            onClick={async () => {
               useAuthStore.getState().setDemoMode(false);
+              try {
+                const res: any = await apiClient.get("/gmail/connect");
+                if (res.auth_url) window.location.href = res.auth_url;
+              } catch (e) {
+                console.error("Failed to get Gmail connect URL", e);
+              }
             }}
           >
             Connect My Gmail
@@ -231,7 +247,11 @@ export default function WorkspaceDashboard() {
             <RefreshCw className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")} />
             {isSyncing ? "Syncing..." : "Sync Now"}
           </Button>
-          <Button size="sm" className="h-9 gap-2 shadow-lg shadow-primary/20">
+          <Button 
+            size="sm" 
+            className="h-9 gap-2 shadow-lg shadow-primary/20"
+            onClick={() => router.push("/dashboard/templates")}
+          >
             <Plus className="h-3.5 w-3.5" />
             New Workflow
           </Button>

@@ -15,6 +15,15 @@ WHAT IT DOES
       - Logs outgoing responses with status code and processing time (ms)
       - Attaches X-Request-ID and X-Process-Time to response headers
 
+NOTE ON STARLETTE BaseHTTPMiddleware BUG:
+    BaseHTTPMiddleware has a known issue where unhandled exceptions raised
+    inside call_next() are caught internally and returned as a blank 500
+    response body, bypassing FastAPI's registered exception handlers.
+    This causes Axios to report "Network Error" rather than a real 500.
+
+    FIX: We explicitly catch exceptions, log them, and re-raise so that
+    FastAPI's global exception handlers can produce proper JSON responses.
+
 HOW IT CONNECTS
     app/main.py  → app.add_middleware(RequestLoggingMiddleware)
 """
@@ -24,7 +33,7 @@ import uuid
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, JSONResponse
 
 from app.core.logging import get_logger
 
@@ -55,8 +64,36 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             request_id,
         )
 
-        # Process the request
-        response: Response = await call_next(request)
+        try:
+            response: Response = await call_next(request)
+        except Exception as exc:
+            # CRITICAL FIX: BaseHTTPMiddleware swallows exceptions and returns
+            # an empty 500 body, causing Axios "Network Error". We catch here,
+            # log the real error, and return a proper JSON response instead.
+            process_time_ms = (time.perf_counter() - start_time) * 1000
+            logger.exception(
+                "← %s %s | UNHANDLED EXCEPTION | took=%.2fms | request_id=%s | error=%s",
+                request.method,
+                request.url.path,
+                process_time_ms,
+                request_id,
+                str(exc),
+            )
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "INTERNAL_SERVER_ERROR",
+                        "message": str(exc),
+                        "details": None,
+                    },
+                },
+                headers={
+                    "X-Request-ID": request_id,
+                    "X-Process-Time": f"{process_time_ms:.2f}ms",
+                },
+            )
 
         # Calculate processing time
         process_time_ms = (time.perf_counter() - start_time) * 1000

@@ -51,6 +51,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
+        // x-clerk-id is injected automatically by the Axios interceptor
         const res = await apiClient.get<any, any>("/gmail/status");
         setGmailConnected(res.connected);
       } catch (err) {

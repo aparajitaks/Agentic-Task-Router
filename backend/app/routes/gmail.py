@@ -193,14 +193,24 @@ async def sync_emails(
 ) -> Any:
     """
     Manually triggers the pipeline to fetch unread emails for the current user.
+    Returns a graceful error response if Gmail credentials are missing or invalid
+    rather than crashing the connection (which causes AxiosError: Network Error).
     """
-    ingester = EmailIngester(db, user_id=current_user.id)
-    count = await ingester.sync_unread_emails()
-    
-    return success_response(
-        data={"emails_processed": count},
-        message=f"Successfully ingested {count} unread emails."
-    )
+    try:
+        ingester = EmailIngester(db, user_id=current_user.id)
+        count = await ingester.sync_unread_emails()
+        return success_response(
+            data={"emails_processed": count},
+            message=f"Successfully ingested {count} unread emails."
+        )
+    except Exception as e:
+        logger.error("Gmail sync failed for user %s: %s", current_user.id, str(e), exc_info=True)
+        # Return a 200 with error detail rather than dropping the connection.
+        # The frontend handles this via the 'emails_processed: 0' fallback.
+        return success_response(
+            data={"emails_processed": 0, "error": str(e)},
+            message="Gmail sync could not complete. Please ensure Gmail is connected."
+        )
 
 
 @router.get("/emails", summary="List Ingested Emails")

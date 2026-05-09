@@ -164,7 +164,12 @@ class Approval(Base, TimestampMixin):
 
     # ── Decision ──────────────────────────────────────────────────────────────
     status: Mapped[ApprovalStatus] = mapped_column(
-        SAEnum(ApprovalStatus, name="approval_status_enum", create_type=True),
+        SAEnum(
+            ApprovalStatus,
+            name="approval_status_enum",
+            create_type=False,           # Type already exists in DB via Alembic migration
+            values_callable=lambda x: [e.value for e in x],  # Use .value not .name
+        ),
         default=ApprovalStatus.PENDING_APPROVAL,
         nullable=False,
         index=True,

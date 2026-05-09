@@ -116,21 +116,16 @@ export default function OnboardingPage() {
   const handleConnectGmail = async () => {
     setIsConnecting(true);
     try {
-      const response = await apiClient.get<any, any>("/gmail/connect", {
-        headers: { "X-Clerk-ID": "demo_user_123" }
-      });
-      // The apiClient interceptor might unwrap data.data, so handle safely:
+      const response = await apiClient.get<any, any>("/gmail/connect");
       const authUrl = response.auth_url || (response.data && response.data.auth_url);
-      // In a real app, we'd open this in a popup or redirect
       if (authUrl) {
-          window.open(authUrl, "_blank", "width=600,height=600");
-      }
-      
-      // For demo, we still move forward after a small delay
-      setTimeout(() => {
+        // Same-tab redirect: Google returns to /dashboard?auth_success=true
+        // which the dashboard already handles to update state.
+        window.location.href = authUrl;
+      } else {
+        console.error("No auth_url received from backend");
         setIsConnecting(false);
-        nextStep();
-      }, 3000);
+      }
     } catch (e) {
       console.error("Failed to get Gmail auth URL", e);
       setIsConnecting(false);
