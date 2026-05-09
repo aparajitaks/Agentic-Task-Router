@@ -113,9 +113,10 @@ def create_app() -> FastAPI:
     )
 
     # ── Middleware ─────────────────────────────────────────────────────────────
-    # Order matters! Middleware is processed in REVERSE registration order.
-    # CORS must be added before RequestLoggingMiddleware so preflight requests
-    # are handled correctly.
+    # CORS is added LAST because middleware is processed in reverse order.
+    # This makes CORS the outermost layer, handling preflights immediately.
+
+    app.add_middleware(RequestLoggingMiddleware)
 
     app.add_middleware(
         CORSMiddleware,
@@ -124,8 +125,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    app.add_middleware(RequestLoggingMiddleware)
 
     # ── Exception Handlers ────────────────────────────────────────────────────
     register_exception_handlers(app)
