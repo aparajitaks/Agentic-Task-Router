@@ -65,7 +65,7 @@ async def _async_resume_workflow(
     """
     import uuid
     from langchain_core.messages import messages_from_dict
-    from app.graphs.hitl_graph import hitl_graph
+    from app.graphs.hitl_graph import build_hitl_graph
     from app.models.task import Task, TaskStatus
     from app.models.approval import Approval
     from app.models.log import Log, LogLevel
@@ -98,13 +98,16 @@ async def _async_resume_workflow(
             # ── Forge Graph State & Resume Execution ──────────────────────────
             config = {"configurable": {"thread_id": task_id_str}}
             
+            # Create a resume-ready graph instance without the interrupt_before
+            resume_graph = build_hitl_graph(is_resume=True)
+            
             # Inject the restored state (with human edits) into the checkpointer 
             # as if it just came out of the human_review_node
-            hitl_graph.update_state(config, workflow_state, as_node="human_review_node")
+            resume_graph.update_state(config, workflow_state, as_node="human_review_node")
             
             # Invoke the graph. Since the state is paused at human_review_node,
             # it will automatically traverse the edge to send_email_node and then END.
-            final_state = await hitl_graph.ainvoke(None, config)
+            final_state = await resume_graph.ainvoke(None, config)
 
             # ── Update Task to COMPLETED ──────────────────────────────────────
             stmt = select(Task).where(Task.id == task_id)

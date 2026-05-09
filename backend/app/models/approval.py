@@ -49,6 +49,7 @@ from app.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.task import Task
+    from app.models.user import User
 
 
 class ApprovalStatus(str, enum.Enum):

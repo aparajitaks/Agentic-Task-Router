@@ -20,7 +20,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import axios from "axios";
+import { apiClient } from "@/lib/api-client";
 import { 
   Bot, 
   Mail, 
@@ -77,16 +77,16 @@ export default function WorkspaceDashboard() {
         const config = { headers: { "X-Clerk-ID": "demo_user_123" } };
         
         // Fetch Gmail status
-        const gmailRes = await axios.get("http://localhost:8000/api/v1/gmail/status", config);
-        setIsGmailConnected(gmailRes.data.data.connected);
+        const gmailRes: any = await apiClient.get("/gmail/status", config);
+        setIsGmailConnected(gmailRes.connected);
         
         // Fetch Pending Approvals
-        const approvalsRes = await axios.get("http://localhost:8000/api/v1/approvals/pending", config);
-        setPendingApprovals(approvalsRes.data.data.total || 0);
+        const approvalsRes: any = await apiClient.get("/approvals/pending", config);
+        setPendingApprovals(approvalsRes.total || 0);
 
         // Fetch User Info
-        const userRes = await axios.get("http://localhost:8000/api/v1/users/me", config);
-        setUserEmail(userRes.data.data.email);
+        const userRes: any = await apiClient.get("/users/me", config);
+        setUserEmail(userRes.email);
       } catch (e) {
         console.error("Dashboard data fetch failed", e);
       }
@@ -97,7 +97,7 @@ export default function WorkspaceDashboard() {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      await axios.post("http://localhost:8000/api/v1/gmail/sync", {}, {
+      await apiClient.post("/gmail/sync", {}, {
         headers: { "X-Clerk-ID": "demo_user_123" }
       });
       // Refresh logic would go here

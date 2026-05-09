@@ -95,9 +95,29 @@ async def disconnect_gmail(
     token = result.scalar_one_or_none()
     
     if token:
+        # REAL DISCONNECT: Revoke the token from Google's servers
+        import httpx
+        try:
+            async with httpx.AsyncClient() as client:
+                # We prioritize revoking the refresh_token as it's more durable, 
+                # but access_token works too if refresh is missing.
+                revoke_target = token.refresh_token or token.access_token
+                revoke_res = await client.post(
+                    "https://oauth2.googleapis.com/revoke",
+                    params={"token": revoke_target},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+                if revoke_res.status_code == 200:
+                    logger.info(f"Google OAuth token revoked for user: {current_user.id}")
+                else:
+                    logger.warning(f"Google token revocation returned status {revoke_res.status_code}: {revoke_res.text}")
+        except Exception as e:
+            # We don't block DB deletion if Google revocation fails (e.g. token already expired)
+            logger.error(f"Error during Google token revocation: {str(e)}")
+
         await db.delete(token)
         await db.commit()
-        return success_response(data={"connected": False}, message="Gmail disconnected successfully.")
+        return success_response(data={"connected": False}, message="Gmail disconnected and tokens revoked.")
     
     return success_response(data={"connected": False}, message="Not connected to Gmail.")
 

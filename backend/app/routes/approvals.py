@@ -23,7 +23,7 @@ HOW IT CONNECTS
 """
 
 import uuid
-from typing import Optional, cast
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,7 +66,7 @@ async def list_approvals(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     approvals, total = await get_all_approvals(
-        db, user_id=cast(uuid.UUID, current_user.id), page=page, page_size=page_size, status_filter=status_filter
+        db, user_id=current_user.id, page=page, page_size=page_size, status_filter=status_filter
     )
     return paginated_response(
         data=[ApprovalResponse.model_validate(a).model_dump(mode="json") for a in approvals],
@@ -92,7 +92,7 @@ async def list_pending_approvals(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    approvals, total = await get_pending_approvals(db, user_id=cast(uuid.UUID, current_user.id), page=page, page_size=page_size)
+    approvals, total = await get_pending_approvals(db, user_id=current_user.id, page=page, page_size=page_size)
     return paginated_response(
         data=[ApprovalResponse.model_validate(a).model_dump(mode="json") for a in approvals],
         total=total,
@@ -116,7 +116,7 @@ async def get_approval(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    approval = await get_approval_by_id(db, approval_id, cast(uuid.UUID, current_user.id))
+    approval = await get_approval_by_id(db, approval_id, current_user.id)
     return success_response(
         data=ApprovalResponse.model_validate(approval).model_dump(mode="json"),
         message="Approval retrieved.",
@@ -141,7 +141,7 @@ async def approve_workflow(
     approval = await process_approval_decision(
         db,
         approval_id,
-        cast(uuid.UUID, current_user.id),
+        current_user.id,
         decision=ApprovalStatus.APPROVED,
         reviewer_id=body.reviewer_id,
         reviewer_name=body.reviewer_name,
@@ -171,7 +171,7 @@ async def edit_and_approve_workflow(
     approval = await process_approval_decision(
         db,
         approval_id,
-        cast(uuid.UUID, current_user.id),
+        current_user.id,
         decision=ApprovalStatus.EDITED,
         reviewer_id=body.reviewer_id,
         reviewer_name=body.reviewer_name,
@@ -202,7 +202,7 @@ async def reject_workflow(
     approval = await process_approval_decision(
         db,
         approval_id,
-        cast(uuid.UUID, current_user.id),
+        current_user.id,
         decision=ApprovalStatus.REJECTED,
         reviewer_id=body.reviewer_id,
         reviewer_name=body.reviewer_name,

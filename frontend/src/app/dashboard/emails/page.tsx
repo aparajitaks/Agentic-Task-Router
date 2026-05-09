@@ -16,7 +16,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { apiClient } from "@/lib/api-client";
 import { formatDistanceToNow } from "date-fns";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,10 +34,10 @@ export default function EmailsPage() {
   useEffect(() => {
     const fetchEmails = async () => {
       try {
-        const response = await axios.get("http://localhost:8000/api/v1/gmail/emails", {
+        const response: any = await apiClient.get("/gmail/emails", {
           headers: { "X-Clerk-ID": "demo_user_123" }
         });
-        setEmails(response.data.data);
+        setEmails(response);
       } catch (e) {
         console.error("Failed to fetch emails", e);
       } finally {
