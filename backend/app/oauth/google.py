@@ -71,8 +71,14 @@ class GoogleOAuthService:
             }
         }
 
-    def get_authorization_url(self) -> str:
-        """Generates the URL for the user to authorize our app."""
+    def get_authorization_url(self, state: Optional[str] = None) -> str:
+        """
+        Generates the URL for the user to authorize our app.
+        
+        The 'state' parameter is used to maintain state between the request and the callback,
+        acting as a CSRF protection and a way to pass user identifiers (like clerk_id)
+        back to the callback route which won't have authentication headers.
+        """
         if not self.client_config["web"]["client_id"]:
             raise ValidationException("Google Client ID is not configured. Please check environment variables.")
 
@@ -87,7 +93,8 @@ class GoogleOAuthService:
         auth_url, _ = flow.authorization_url(
             access_type="offline",
             prompt="consent",
-            include_granted_scopes="true"
+            include_granted_scopes="true",
+            state=state
         )
         return auth_url
 
@@ -96,7 +103,7 @@ class GoogleOAuthService:
         flow = Flow.from_client_config(
             self.client_config,
             scopes=GMAIL_SCOPES,
-            redirect_uri="http://localhost:8000/api/v1/gmail/callback"
+            redirect_uri=settings.google_redirect_uri
         )
         
         try:

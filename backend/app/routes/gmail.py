@@ -44,27 +44,79 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/gmail", tags=["Gmail Integration"])
 
 
+import json
+import base64
+
 @router.get("/connect", summary="Get Google Auth URL")
-async def connect_gmail() -> Any:
-    """Returns the OAuth2 URL that the user must visit to grant Gmail access."""
+async def connect_gmail(
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Returns the OAuth2 URL that the user must visit to grant Gmail access.
+    
+    We encode the current user's clerk_id into the 'state' parameter.
+    Google will pass this state back to our /callback endpoint.
+    This allows us to identify the user even though the callback
+    request won't have authentication headers (x-clerk-id).
+    """
     oauth_service = GoogleOAuthService()
-    url = oauth_service.get_authorization_url()
+    
+    # Create a state object containing the user's clerk_id
+    state_data = {"clerk_id": current_user.clerk_id}
+    state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
+    
+    url = oauth_service.get_authorization_url(state=state)
     return success_response(data={"auth_url": url}, message="Please visit the URL to authenticate.")
 
 
 @router.get("/callback", summary="OAuth Callback")
 async def gmail_callback(
     code: str = Query(..., description="The authorization code from Google"),
-    current_user: User = Depends(get_current_user),
+    state: str = Query(..., description="The state parameter containing user info"),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
-    """Handles the redirect from Google and stores the OAuth tokens."""
-    oauth_service = GoogleOAuthService()
-    await oauth_service.exchange_code_for_token(db, code, current_user.id)
+    """
+    Handles the redirect from Google and stores the OAuth tokens.
     
-    # Redirect back to the frontend onboarding or dashboard
-    # We append a success parameter so the frontend can show a toast
-    return RedirectResponse(url=f"{settings.frontend_url}/dashboard?auth_success=true")
+    CRITICAL: This endpoint is called directly by Google's servers/redirects.
+    It DOES NOT receive the x-clerk-id header. We must resolve the user
+    via the 'state' parameter.
+    """
+    logger.info("Received Google OAuth callback. State: %s", state)
+    
+    try:
+        # Decode the state to get the user's clerk_id
+        state_json = base64.urlsafe_b64decode(state.encode()).decode()
+        state_data = json.loads(state_json)
+        clerk_id = state_data.get("clerk_id")
+        
+        if not clerk_id:
+            logger.error("OAuth callback failed: clerk_id missing from state.")
+            return RedirectResponse(url=f"{settings.frontend_url}/dashboard?auth_error=state_missing")
+
+        # Resolve the user from the database
+        stmt = select(User).where(User.clerk_id == clerk_id)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            logger.error("OAuth callback failed: No user found for clerk_id %s", clerk_id)
+            return RedirectResponse(url=f"{settings.frontend_url}/dashboard?auth_error=user_not_found")
+
+        logger.info("Resolved user %s from OAuth state. Exchanging code...", user.id)
+
+        # Exchange code for tokens and save
+        oauth_service = GoogleOAuthService()
+        await oauth_service.exchange_code_for_token(db, code, user.id)
+        
+        logger.info("Successfully linked Google OAuth token for user %s", user.id)
+        
+        # Redirect back to the frontend dashboard with success flag
+        return RedirectResponse(url=f"{settings.frontend_url}/dashboard?auth_success=true")
+
+    except Exception as e:
+        logger.error("Google OAuth callback failed: %s", str(e))
+        return RedirectResponse(url=f"{settings.frontend_url}/dashboard?auth_error=exception")
 
 
 @router.get("/status", summary="Check Integration Status")
