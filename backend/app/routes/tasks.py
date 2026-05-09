@@ -8,9 +8,6 @@ WHY THIS FILE EXISTS
       3. Wrap the result in a consistent API envelope
       4. Return the correct HTTP status code
 
-    No business logic belongs here.  If a route is longer than ~20 lines,
-    something is wrong.
-
 WHAT IT DOES
     Implements the full CRUD surface for Tasks:
       POST   /api/v1/tasks            → Create Task
@@ -18,18 +15,11 @@ WHAT IT DOES
       GET    /api/v1/tasks/{task_id}  → Get Single Task
       PATCH  /api/v1/tasks/{task_id}  → Partial Update Task
       DELETE /api/v1/tasks/{task_id}  → Soft-Delete Task
-
-HOW IT CONNECTS
-    app/main.py             → router registered under /api/v1 prefix
-    app/services/task.py    → all route handlers delegate here
-    app/db/session.py       → get_db injected via Depends()
-    app/core/responses.py   → success_response / paginated_response used here
 """
 
 from __future__ import annotations
-
 import uuid
-from typing import Optional
+from typing import Optional, Any
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,48 +50,33 @@ router = APIRouter(
 )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# POST /api/v1/tasks — Create Task
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.post(
     "/",
-    response_model=None,          # We return a dict envelope, not a bare Pydantic model
     status_code=status.HTTP_201_CREATED,
     summary="Create a new Task",
-    description=(
-        "Creates a new Task in PENDING state.  "
-        "The task is immediately available for agent assignment."
-    ),
 )
 async def create_task_route(
     payload: TaskCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> Any:
     task = await create_task(db, payload, current_user.id)
     return success_response(
-        data=task.model_dump(mode="json"),
+        data=TaskResponse.model_validate(task).model_dump(mode="json"),
         message="Task created successfully.",
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# POST /api/v1/tasks/execute — Execute AI Workflow
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.post(
     "/execute",
-    response_model=None,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Execute an AI Workflow",
-    description="Creates a task and queues it for asynchronous LangGraph execution.",
 )
 async def execute_workflow_route(
     payload: TaskExecuteRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> Any:
     # 1. Create task in DB as QUEUED
     task = Task(
         title=payload.title,
@@ -117,40 +92,27 @@ async def execute_workflow_route(
     # 2. Push to Celery/Redis queue
     execute_agentic_workflow_task.delay(str(task.id))
     
-    response_data = TaskResponse.model_validate(task).model_dump(mode="json")
-    
     return success_response(
-        data=response_data,
+        data=TaskResponse.model_validate(task).model_dump(mode="json"),
         message="Workflow successfully queued for processing.",
     )
 
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/v1/tasks — List All Tasks
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.get(
     "/",
-    response_model=None,
     status_code=status.HTTP_200_OK,
     summary="List Tasks",
-    description="Returns a paginated list of tasks with optional status filtering.",
 )
 async def list_tasks_route(
-    page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
-    page_size: int = Query(default=20, ge=1, le=100, description="Items per page."),
-    status_filter: Optional[TaskStatus] = Query(
-        default=None,
-        alias="status",
-        description="Filter tasks by lifecycle status.",
-    ),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    status_filter: Optional[TaskStatus] = Query(default=None, alias="status"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> Any:
     tasks, total = await get_all_tasks(db, user_id=current_user.id, page=page, page_size=page_size, status_filter=status_filter)
     return paginated_response(
-        data=[t.model_dump(mode="json") for t in tasks],
+        data=[TaskResponse.model_validate(t).model_dump(mode="json") for t in tasks],
         total=total,
         page=page,
         page_size=page_size,
@@ -158,13 +120,8 @@ async def list_tasks_route(
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/v1/tasks/{task_id} — Get Single Task
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.get(
     "/{task_id}",
-    response_model=None,
     status_code=status.HTTP_200_OK,
     summary="Get a Task by ID",
 )
@@ -172,57 +129,27 @@ async def get_task_route(
     task_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> Any:
     task = await get_task_by_id(db, task_id, current_user.id)
     return success_response(
-        data=task.model_dump(mode="json"),
+        data=TaskResponse.model_validate(task).model_dump(mode="json"),
         message="Task retrieved successfully.",
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/v1/tasks/{task_id}/workflow — Get Workflow State
-# ─────────────────────────────────────────────────────────────────────────────
-
-@router.get(
-    "/{task_id}/workflow",
-    response_model=None,
-    status_code=status.HTTP_200_OK,
-    summary="Get Task Workflow State",
-    description="Returns the task including its AI input, output, and routing details.",
-)
-async def get_task_workflow_route(
-    task_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    task = await get_task_by_id(db, task_id, current_user.id)
-    return success_response(
-        data=task.model_dump(mode="json"),
-        message="Workflow state retrieved.",
-    )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/v1/tasks/{task_id}/logs — Get Execution Logs
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.get(
     "/{task_id}/logs",
-    response_model=None,
     status_code=status.HTTP_200_OK,
     summary="Get Task Execution Logs",
-    description="Returns the immutable audit trail for a specific task.",
 )
 async def get_task_logs_route(
     task_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
-    # First verify task ownership
+) -> Any:
+    # Verify task ownership
     await get_task_by_id(db, task_id, current_user.id)
     
-    # Basic query to fetch logs ordered by timestamp
     query = select(Log).where(Log.task_id == task_id).order_by(Log.timestamp.asc())
     result = await db.execute(query)
     logs = result.scalars().all()
@@ -245,50 +172,34 @@ async def get_task_logs_route(
     )
 
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PATCH /api/v1/tasks/{task_id} — Partial Update
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.patch(
     "/{task_id}",
-    response_model=None,
     status_code=status.HTTP_200_OK,
     summary="Partially update a Task",
-    description="Update any combination of title, description, status, or assigned agent.",
 )
 async def update_task_route(
     task_id: uuid.UUID,
     payload: TaskUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> Any:
     task = await update_task(db, task_id, current_user.id, payload)
     return success_response(
-        data=task.model_dump(mode="json"),
+        data=TaskResponse.model_validate(task).model_dump(mode="json"),
         message="Task updated successfully.",
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DELETE /api/v1/tasks/{task_id} — Soft Delete
-# ─────────────────────────────────────────────────────────────────────────────
-
 @router.delete(
     "/{task_id}",
-    response_model=None,
     status_code=status.HTTP_200_OK,
     summary="Soft-delete a Task",
-    description=(
-        "Marks the task as deleted (is_deleted=True) without removing it from the DB.  "
-        "This preserves the audit log history."
-    ),
 )
 async def delete_task_route(
     task_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> Any:
     await soft_delete_task(db, task_id, current_user.id)
     return success_response(
         data={"task_id": str(task_id)},

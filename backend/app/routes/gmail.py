@@ -18,13 +18,15 @@ HOW IT CONNECTS
     `EmailIngester`.
 """
 
-from fastapi import APIRouter, Depends, Query, responses
+import uuid
+import httpx
+import sqlalchemy as sa
+from typing import Any, Optional
+
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-import sqlalchemy as sa
-import uuid
-import httpx
 
 from app.config.settings import get_settings
 from app.db.session import get_db
@@ -43,7 +45,7 @@ router = APIRouter(prefix="/gmail", tags=["Gmail Integration"])
 
 
 @router.get("/connect", summary="Get Google Auth URL")
-async def connect_gmail() -> dict:
+async def connect_gmail() -> Any:
     """Returns the OAuth2 URL that the user must visit to grant Gmail access."""
     oauth_service = GoogleOAuthService()
     url = oauth_service.get_authorization_url()
@@ -55,7 +57,7 @@ async def gmail_callback(
     code: str = Query(..., description="The authorization code from Google"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
+) -> Any:
     """Handles the redirect from Google and stores the OAuth tokens."""
     oauth_service = GoogleOAuthService()
     await oauth_service.exchange_code_for_token(db, code, current_user.id)
@@ -69,7 +71,7 @@ async def gmail_callback(
 async def gmail_status(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-) -> dict:
+) -> Any:
     """Checks if the system has valid Gmail OAuth tokens."""
     stmt = select(OAuthToken).where(
         OAuthToken.user_id == current_user.id
@@ -94,7 +96,7 @@ async def gmail_status(
 async def disconnect_gmail(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-) -> dict:
+) -> Any:
     """Revokes Gmail OAuth tokens and disconnects the integration."""
     stmt = select(OAuthToken).where(
         OAuthToken.provider == "google",
@@ -138,7 +140,7 @@ async def disconnect_gmail(
 async def sync_emails(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-) -> dict:
+) -> Any:
     """
     Manually triggers the pipeline to fetch unread emails for the current user.
     """
@@ -150,13 +152,14 @@ async def sync_emails(
         message=f"Successfully ingested {count} unread emails."
     )
 
+
 @router.get("/emails", summary="List Ingested Emails")
 async def list_ingested_emails(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-) -> dict:
+) -> Any:
     """Returns a list of emails that have been ingested for the current user."""
     offset = (page - 1) * page_size
     
