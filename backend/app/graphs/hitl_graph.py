@@ -33,6 +33,8 @@ from typing import Literal
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import messages_to_dict
 
 from app.state.workflow_state import WorkflowState
 from app.agents.router import route_task
@@ -55,6 +57,15 @@ def route_after_tools(state: WorkflowState) -> str:
     if selected in ["summarizer_agent", "reply_generator_agent"]:
         return selected
     return END
+
+def send_email_node(state: WorkflowState) -> WorkflowState:
+    """
+    Downstream node that executes AFTER human approval.
+    In a real app, this would use Gmail API to actually send the drafted reply.
+    """
+    logger.info(f"Executing send_email_node for task: {state.get('task_id')}")
+    # Here we would actually dispatch the email using `state.get("final_output")`
+    return state
 
 
 def human_review_node(state: WorkflowState) -> WorkflowState:
@@ -86,7 +97,7 @@ def human_review_node(state: WorkflowState) -> WorkflowState:
     logger.info("HITL checkpoint reached | task_id=%s agent=%s", task_id_str, selected_agent)
 
     # Serialize the current state as the graph checkpoint
-    # We exclude non-serializable fields (messages contain LangChain objects)
+    # We now correctly serialize LangChain messages to preserve agent memory
     checkpoint = {
         "task_id": task_id_str,
         "input_text": input_text,
@@ -96,6 +107,7 @@ def human_review_node(state: WorkflowState) -> WorkflowState:
         "intermediate_steps": state.get("intermediate_steps", []),
         "current_status": "AWAITING_APPROVAL",
         "error_message": state.get("error_message"),
+        "messages": messages_to_dict(state.get("messages", [])),
     }
 
     workflow_context = {
@@ -171,6 +183,7 @@ def build_hitl_graph():
     workflow.add_node("reply_generator_agent", generate_reply_task)
     workflow.add_node("tools", ToolNode(get_all_tools()))
     workflow.add_node("human_review_node", human_review_node)
+    workflow.add_node("send_email_node", send_email_node)
 
     # ── Entry Point ───────────────────────────────────────────────────────────
     workflow.add_edge(START, "router")
@@ -207,10 +220,16 @@ def build_hitl_graph():
     # ── Tools → Agent (loop back) ─────────────────────────────────────────────
     workflow.add_conditional_edges("tools", route_after_tools)
 
-    # ── HITL → END ────────────────────────────────────────────────────────────
-    workflow.add_edge("human_review_node", END)
+    # ── HITL → Downstream Nodes ───────────────────────────────────────────────
+    workflow.add_edge("human_review_node", "send_email_node")
+    workflow.add_edge("send_email_node", END)
 
-    return workflow.compile()
+    # Use MemorySaver as a transient checkpointer to enable interrupt_before
+    # The actual persistence across Celery workers is handled by our DB checkpoints
+    return workflow.compile(
+        checkpointer=MemorySaver(),
+        interrupt_before=["send_email_node"]
+    )
 
 
 # Module-level HITL graph instance

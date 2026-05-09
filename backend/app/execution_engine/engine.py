@@ -24,7 +24,7 @@ from sqlalchemy import select
 from app.db.session import AsyncSessionLocal
 from app.models.task import Task, TaskStatus
 from app.models.log import Log, LogLevel
-from app.graphs.main_graph import app_graph
+from app.graphs.hitl_graph import hitl_graph
 from app.state.workflow_state import WorkflowState
 from app.core.logging import get_logger
 
@@ -87,21 +87,24 @@ class SyncWorkflowEngine:
 
             try:
                 # 4. Execute Workflow
-                final_state = await app_graph.ainvoke(initial_state)
+                final_state = await hitl_graph.ainvoke(initial_state, config={"configurable": {"thread_id": str(task.id)}})
                 
-                # 5. Handle Success
+                # 5. Handle Success / Interruption
                 if final_state.get("error_message") or final_state.get("route") == "unknown":
                     task.status = TaskStatus.FAILED
                     task.failure_reason = final_state.get("error_message") or "Routing failed."
                     task.output_text = task.failure_reason
                     log_level = LogLevel.ERROR
+                elif final_state.get("current_status") == "AWAITING_APPROVAL":
+                    task.status = TaskStatus.AWAITING_APPROVAL
+                    # We don't mark execution completed yet
+                    log_level = LogLevel.INFO
                 else:
                     task.status = TaskStatus.COMPLETED
                     task.output_text = final_state.get("final_output")
                     task.route_taken = final_state.get("route")
+                    task.execution_completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                     log_level = LogLevel.INFO
-                    
-                task.execution_completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 
                 db.add(Log(
                     task_id=task.id,

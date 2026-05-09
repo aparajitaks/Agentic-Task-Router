@@ -17,7 +17,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import { apiClient } from "@/lib/api-client";
 import { 
   Check, 
   Mail, 
@@ -87,7 +87,7 @@ export default function OnboardingPage() {
       setIsSyncing(true);
       // Sync user on first step
       try {
-        await axios.post("http://localhost:8000/api/v1/users/sync-user", {
+        await apiClient.post("/users/sync-user", {
           clerk_id: "demo_user_123",
           email: "demo@example.com",
           full_name: "Demo User"
@@ -116,12 +116,15 @@ export default function OnboardingPage() {
   const handleConnectGmail = async () => {
     setIsConnecting(true);
     try {
-      const response = await axios.get("http://localhost:8000/api/v1/gmail/connect", {
+      const response = await apiClient.get("/gmail/connect", {
         headers: { "X-Clerk-ID": "demo_user_123" }
       });
-      const authUrl = response.data.data.auth_url;
+      // The apiClient interceptor might unwrap data.data, so handle safely:
+      const authUrl = response.auth_url || (response.data && response.data.auth_url);
       // In a real app, we'd open this in a popup or redirect
-      window.open(authUrl, "_blank", "width=600,height=600");
+      if (authUrl) {
+          window.open(authUrl, "_blank", "width=600,height=600");
+      }
       
       // For demo, we still move forward after a small delay
       setTimeout(() => {

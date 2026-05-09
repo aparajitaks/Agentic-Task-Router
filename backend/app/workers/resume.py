@@ -64,9 +64,11 @@ async def _async_resume_workflow(
     3. Update the Task's final status in the database.
     """
     import uuid
-    from app.graphs.main_graph import app_graph
+    from langchain_core.messages import messages_from_dict
+    from app.graphs.hitl_graph import hitl_graph
     from app.models.task import Task, TaskStatus
     from app.models.approval import Approval
+    from app.models.log import Log, LogLevel
 
     task_id = uuid.UUID(task_id_str)
     approval_id = uuid.UUID(approval_id_str)
@@ -81,21 +83,28 @@ async def _async_resume_workflow(
             )
 
             # ── Reconstruct the WorkflowState from the checkpoint ─────────────
-            # The checkpoint already contains the human's final_output decision
-            # injected by the approval service. We now drive the graph forward
-            # from the post-approval node.
             workflow_state = checkpoint_state
-
-            # Execute only the remaining nodes after the human review checkpoint.
-            # Since we're post-approval, the workflow simply needs to finalize
-            # (e.g., record output). The `final_output` is already set.
-            # In a more complex graph, you'd resume from a specific node.
+            
+            # Restore LangChain message objects
+            if "messages" in workflow_state and workflow_state["messages"]:
+                workflow_state["messages"] = messages_from_dict(workflow_state["messages"])
 
             logger.info(
-                "Resumed workflow completing | task_id=%s final_output_length=%d",
+                "Resuming LangGraph execution | task_id=%s final_output_length=%d",
                 task_id_str,
                 len(workflow_state.get("final_output", "") or ""),
             )
+
+            # ── Forge Graph State & Resume Execution ──────────────────────────
+            config = {"configurable": {"thread_id": task_id_str}}
+            
+            # Inject the restored state (with human edits) into the checkpointer 
+            # as if it just came out of the human_review_node
+            hitl_graph.update_state(config, workflow_state, as_node="human_review_node")
+            
+            # Invoke the graph. Since the state is paused at human_review_node,
+            # it will automatically traverse the edge to send_email_node and then END.
+            final_state = await hitl_graph.ainvoke(None, config)
 
             # ── Update Task to COMPLETED ──────────────────────────────────────
             stmt = select(Task).where(Task.id == task_id)
@@ -104,9 +113,21 @@ async def _async_resume_workflow(
 
             if task:
                 from datetime import datetime, timezone
-                task.status = TaskStatus.COMPLETED
-                task.output_text = workflow_state.get("final_output")
+                if final_state.get("error_message"):
+                    task.status = TaskStatus.FAILED
+                    task.failure_reason = final_state.get("error_message")
+                else:
+                    task.status = TaskStatus.COMPLETED
+                    task.output_text = final_state.get("final_output")
+                
                 task.execution_completed_at = datetime.now(timezone.utc)
+                
+                db.add(Log(
+                    task_id=task.id,
+                    message=f"Resumed workflow finished: {task.status.value}",
+                    level=LogLevel.INFO if task.status == TaskStatus.COMPLETED else LogLevel.ERROR,
+                    source="celery_worker"
+                ))
 
             # ── Mark Approval as resumed ──────────────────────────────────────
             approval_stmt = select(Approval).where(Approval.id == approval_id)
