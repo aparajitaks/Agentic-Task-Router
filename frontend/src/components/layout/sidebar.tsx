@@ -2,12 +2,7 @@
  * frontend/src/components/layout/sidebar.tsx
  *
  * WHY IT EXISTS:
- * Primary navigation element for the SaaS dashboard. It needs to be collapsible
- * and reflect the user-centric product structure.
- *
- * WHAT IT DOES:
- * Renders navigation links using Lucide icons. Uses Zustand `useUiStore` to
- * animate width transitions and manages active route states.
+ * Primary navigation element for the SaaS dashboard.
  */
 
 "use client";
@@ -87,7 +82,7 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Footer: User Workspace Info / Settings / Toggle */}
+        {/* Footer */}
         <div className="border-t p-2 space-y-1">
           {isSidebarOpen && (
             <div className={cn(

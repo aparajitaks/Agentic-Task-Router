@@ -15,8 +15,27 @@
 
 import axios from "axios";
 
+// ── API Configuration ────────────────────────────────────────────────────────
+// In a production environment, we'd use a real domain. 
+// Locally, we default to localhost:8000.
+const getBaseURL = () => {
+  if (typeof window !== "undefined") {
+    // If we're in the browser, and the API URL is not explicitly set,
+    // we try to be smart about whether to use localhost or the current hostname.
+    const explicitUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (explicitUrl) return explicitUrl;
+
+    const hostname = window.location.hostname;
+    // If we are accessing via an IP or another hostname, use that instead of localhost
+    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+      return `http://${hostname}:8000/api/v1`;
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+};
+
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1",
+  baseURL: getBaseURL(),
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",

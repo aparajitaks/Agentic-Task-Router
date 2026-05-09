@@ -3,12 +3,6 @@
  *
  * WHY IT EXISTS:
  * Top navigation bar providing user context, global search, and breadcrumbs.
- *
- * WHAT IT DOES:
- * Displays dynamic page titles, notifications, and user profile mock.
- *
- * HOW IT CONNECTS TO BACKEND:
- * Will eventually connect to user settings or global search API endpoints.
  */
 
 "use client";

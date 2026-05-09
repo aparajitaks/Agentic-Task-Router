@@ -4,21 +4,11 @@
  * WHY IT EXISTS:
  * This is the nerve center for the end-user. It transforms engineering
  * metrics into personal productivity insights. 
- *
- * WHAT IT DOES:
- * - Displays user-personalized KPIs (emails processed, time saved).
- * - Shows active automation status (Gmail connection, agent health).
- * - Provides a "Action Required" section for HITL approvals.
- * - Visualizes recent AI activity with high-end area charts.
- * - Offers a "Get Started" guide for new users.
- *
- * HOW IT CONNECTS:
- * - Polls user-scoped endpoints (GET /tasks, GET /approvals/pending).
  */
 
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -56,7 +46,7 @@ import {
   ResponsiveContainer 
 } from "recharts";
 
-// Mock Data - In a real app, this comes from React Query hooks
+// Mock Data
 const DATA = [
   { name: "00:00", count: 45 },
   { name: "04:00", count: 32 },
@@ -80,7 +70,6 @@ export default function WorkspaceDashboard() {
     if (searchParams.get("auth_success") === "true") {
       setShowAuthSuccess(true);
       setGmailConnected(true);
-      // Clean up URL
       window.history.replaceState({}, "", "/dashboard");
       setTimeout(() => setShowAuthSuccess(false), 5000);
     }
@@ -88,7 +77,6 @@ export default function WorkspaceDashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      // If we are in Demo Mode, just use mock data
       if (isDemoMode && !isGmailConnected) {
         setPendingApprovals(5);
         setUserEmail("demo@example.com");
@@ -100,16 +88,13 @@ export default function WorkspaceDashboard() {
       try {
         const config = { headers: { "X-Clerk-ID": "demo_user_123" } };
         
-        // Fetch Gmail status
         const gmailRes: any = await apiClient.get("/gmail/status", config);
         setGmailConnected(gmailRes.connected);
         
         if (gmailRes.connected) {
-          // Fetch Pending Approvals
           const approvalsRes: any = await apiClient.get("/approvals/pending", config);
           setPendingApprovals(approvalsRes.total || 0);
 
-          // Fetch User Info
           const userRes: any = await apiClient.get("/users/me", config);
           setUserEmail(userRes.email);
         }
@@ -124,7 +109,6 @@ export default function WorkspaceDashboard() {
     setIsSyncing(true);
     
     if (isDemoMode && !isGmailConnected) {
-      // Simulate sync for demo
       setTimeout(() => {
         setIsSyncing(false);
       }, 1500);
@@ -145,7 +129,7 @@ export default function WorkspaceDashboard() {
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       
-      {/* ── Success Message ────────────────────────────────────────────────── */}
+      {/* Success Message */}
       {showAuthSuccess && (
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center gap-4 animate-in slide-in-from-top duration-500">
           <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
@@ -158,7 +142,7 @@ export default function WorkspaceDashboard() {
         </div>
       )}
 
-      {/* ── Demo Mode Banner ────────────────────────────────────────────────── */}
+      {/* Demo Mode Banner */}
       {isDemoMode && !isGmailConnected && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -183,7 +167,7 @@ export default function WorkspaceDashboard() {
         </div>
       )}
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-1">
           <Badge variant="outline" className="text-[10px] uppercase tracking-widest text-primary border-primary/20 bg-primary/5">
@@ -211,14 +195,9 @@ export default function WorkspaceDashboard() {
         </div>
       </div>
 
-      {/* ── Top Row: Critical Status ────────────────────────────────────────── */}
+      {/* Critical Status */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-        {/* Gmail Connection Status */}
         <Card className="bg-gradient-to-br from-background to-muted/30 border-muted/60 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
-            <Mail className="h-24 w-24" />
-          </div>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-4">
               <div className="h-10 w-10 rounded-lg bg-red-500/10 flex items-center justify-center">
@@ -240,11 +219,7 @@ export default function WorkspaceDashboard() {
           </CardContent>
         </Card>
 
-        {/* Approvals Pending (HITL) */}
         <Card className="bg-gradient-to-br from-background to-muted/30 border-muted/60 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
-            <ShieldCheck className="h-24 w-24" />
-          </div>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-4">
               <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
@@ -269,11 +244,7 @@ export default function WorkspaceDashboard() {
           </CardContent>
         </Card>
 
-        {/* System Health */}
         <Card className="bg-gradient-to-br from-background to-muted/30 border-muted/60 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
-            <Zap className="h-24 w-24" />
-          </div>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-4">
               <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
@@ -296,58 +267,53 @@ export default function WorkspaceDashboard() {
         </Card>
       </div>
 
-      {/* ── Middle Section: Chart & Activity ────────────────────────────────── */}
+      {/* Middle Section: Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Productivity Chart */}
         <Card className="lg:col-span-2 border-muted/60">
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="space-y-1">
               <CardTitle className="text-lg">AI Automation Volume</CardTitle>
               <CardDescription>Processed vs Human-intervened tasks (24h)</CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Badge variant="outline" className="bg-primary/5 text-primary">Live</Badge>
-            </div>
+            <Badge variant="outline" className="bg-primary/5 text-primary">Live</Badge>
           </CardHeader>
-          <CardContent className="pt-4 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={DATA}>
-                <defs>
-                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted)/0.4)" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{fontSize: 10, fill: 'hsl(var(--muted-foreground))'}} 
-                  dy={10}
-                />
-                <YAxis 
-                  hide 
-                />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--muted))', borderRadius: '8px', fontSize: '12px' }}
-                  itemStyle={{ color: 'hsl(var(--primary))' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="count" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={2}
-                  fillOpacity={1} 
-                  fill="url(#colorCount)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <CardContent className="pt-4">
+            <div className="h-[300px] w-full min-h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={DATA}>
+                  <defs>
+                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted)/0.4)" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fontSize: 10, fill: 'hsl(var(--muted-foreground))'}} 
+                    dy={10}
+                  />
+                  <YAxis hide />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--muted))', borderRadius: '8px', fontSize: '12px' }}
+                    itemStyle={{ color: 'hsl(var(--primary))' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="count" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={2}
+                    fillOpacity={1} 
+                    fill="url(#colorCount)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Recent Insights */}
         <Card className="border-muted/60">
           <CardHeader>
             <CardTitle className="text-lg">AI Insights</CardTitle>
@@ -389,7 +355,7 @@ export default function WorkspaceDashboard() {
         </Card>
       </div>
 
-      {/* ── Bottom Section: Active Workflows ────────────────────────────────── */}
+      {/* Bottom Section: Active Workflows */}
       <Card className="border-muted/60 overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <div className="space-y-1">
@@ -422,10 +388,6 @@ export default function WorkspaceDashboard() {
                     <p className="text-xs font-medium">{wf.calls} Tool Calls</p>
                     <p className="text-[10px] text-muted-foreground">Processed today</p>
                   </div>
-                  <div className="hidden md:block text-right">
-                    <p className="text-xs font-medium">{wf.last}</p>
-                    <p className="text-[10px] text-muted-foreground">Last active</p>
-                  </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className={`text-[10px] ${wf.status === 'Running' ? 'text-emerald-500 border-emerald-500/20 bg-emerald-500/5' : 'text-amber-500 border-amber-500/20 bg-amber-500/5'}`}>
                       {wf.status}
@@ -443,5 +405,3 @@ export default function WorkspaceDashboard() {
     </div>
   );
 }
-
-
