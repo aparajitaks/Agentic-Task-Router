@@ -18,7 +18,7 @@ import type { NextRequest } from "next/server";
 const protectedRoutes = ["/dashboard", "/onboarding"];
 const publicRoutes = ["/", "/auth/login", "/auth/signup", "/features", "/pricing", "/docs"];
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   // 1. Check if the path is protected

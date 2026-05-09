@@ -23,6 +23,7 @@ HOW IT CONNECTS
 
 import os
 from logging.config import fileConfig
+from dotenv import load_dotenv
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
@@ -34,6 +35,11 @@ from sqlalchemy import engine_from_config, pool
 # so it gets picked up here automatically.
 from app.db.base import Base
 import app.models  # noqa: F401 — side-effect import to register all models on Base.metadata
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Load environment variables from .env
+# ─────────────────────────────────────────────────────────────────────────────
+load_dotenv()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Alembic Config Object
@@ -63,7 +69,10 @@ def get_database_url() -> str:
         url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
         url = url.replace("sqlite+aiosqlite://", "sqlite://")
         return url
-    return config.get_main_option("sqlalchemy.url")
+    url = config.get_main_option("sqlalchemy.url")
+    if not url:
+        raise ValueError("DATABASE_URL not found in environment or alembic.ini")
+    return url
 
 
 def run_migrations_offline() -> None:
