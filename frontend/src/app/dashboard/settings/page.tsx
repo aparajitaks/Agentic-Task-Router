@@ -15,7 +15,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiClient } from "@/lib/api-client";
 import { 
   User, 
   Mail, 
@@ -41,7 +42,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
-  const [isGmailConnected, setIsGmailConnected] = useState(true);
+  const [isGmailConnected, setIsGmailConnected] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await apiClient.get("/gmail/status");
+        setIsGmailConnected(res.connected);
+      } catch (err) {
+        console.error("Failed to fetch Gmail status", err);
+      }
+    };
+    fetchStatus();
+  }, []);
+
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true);
+    try {
+      await apiClient.post("/gmail/disconnect");
+      setIsGmailConnected(false);
+    } catch (err) {
+      console.error("Failed to disconnect Gmail", err);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
 
   const handleSave = () => {
     setIsSaving(true);
@@ -142,9 +168,10 @@ export default function SettingsPage() {
                     variant="ghost" 
                     size="sm" 
                     className="h-8 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-500"
-                    onClick={() => setIsGmailConnected(false)}
+                    onClick={handleDisconnect}
+                    disabled={isDisconnecting}
                   >
-                    Disconnect
+                    {isDisconnecting ? "Disconnecting..." : "Disconnect"}
                   </Button>
                 </div>
               </div>

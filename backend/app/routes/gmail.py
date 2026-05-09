@@ -82,6 +82,27 @@ async def gmail_status(
     )
 
 
+@router.post("/disconnect", summary="Disconnect Gmail")
+async def disconnect_gmail(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """Revokes Gmail OAuth tokens and disconnects the integration."""
+    stmt = select(OAuthToken).where(
+        OAuthToken.provider == "google",
+        OAuthToken.user_id == cast(uuid.UUID, current_user.id)
+    )
+    result = await db.execute(stmt)
+    token = result.scalar_one_or_none()
+    
+    if token:
+        await db.delete(token)
+        await db.commit()
+        return success_response(data={"connected": False}, message="Gmail disconnected successfully.")
+    
+    return success_response(data={"connected": False}, message="Not connected to Gmail.")
+
+
 @router.post("/sync", summary="Trigger Email Ingestion")
 async def sync_emails(
     current_user: User = Depends(get_current_user),
