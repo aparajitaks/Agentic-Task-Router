@@ -30,50 +30,50 @@ logger = get_logger(__name__)
 
 # Switch this to change the default provider across the entire system.
 # Options: "gemini", "openai", "groq"
-DEFAULT_PROVIDER = "groq"
-
 def get_llm(
     temperature: float = 0.0, 
-    provider: str = DEFAULT_PROVIDER,
+    provider: str | None = None,
     model_name: str | None = None
 ) -> BaseChatModel:
     """
     Returns an instantiated LangChain ChatModel from the specified provider.
+    If provider is not specified, uses the one from settings.
     """
-    if provider == "gemini":
-        if not settings.gemini_api_key:
-            logger.warning("GEMINI_API_KEY is not set. Falling back to OpenAI if available.")
-            return get_llm(temperature, provider="openai")
-            
-        model = model_name or settings.gemini_model_name
-        return ChatGoogleGenerativeAI(
-            model=model,
-            api_key=SecretStr(settings.gemini_api_key) if settings.gemini_api_key else None,
-            temperature=temperature,
-        )
-        
-    elif provider == "openai":
-        if not settings.openai_api_key:
-            raise ValueError("OPENAI_API_KEY is not set.")
-            
-        model = model_name or settings.openai_model_name
-        return ChatOpenAI(
-            model=model,
-            api_key=SecretStr(settings.openai_api_key) if settings.openai_api_key else None,
-            temperature=temperature,
-        )
-        
-    elif provider == "groq":
+    selected_provider = provider or settings.llm_provider
+    selected_provider = selected_provider.lower()
+
+    if selected_provider == "groq":
         if not settings.groq_api_key:
-            logger.warning("GROQ_API_KEY is not set. Falling back to Gemini if available.")
-            return get_llm(temperature, provider="gemini")
+            raise ValueError("GROQ_API_KEY is not set but 'groq' is the selected provider.")
             
         model = model_name or settings.groq_model_name
         return ChatGroq(
             model=model,
-            api_key=SecretStr(settings.groq_api_key) if settings.groq_api_key else None,
+            api_key=SecretStr(settings.groq_api_key),
+            temperature=temperature,
+        )
+
+    elif selected_provider == "gemini":
+        if not settings.gemini_api_key:
+            raise ValueError("GEMINI_API_KEY is not set but 'gemini' is the selected provider.")
+            
+        model = model_name or settings.gemini_model_name
+        return ChatGoogleGenerativeAI(
+            model=model,
+            api_key=SecretStr(settings.gemini_api_key),
+            temperature=temperature,
+        )
+        
+    elif selected_provider == "openai":
+        if not settings.openai_api_key:
+            raise ValueError("OPENAI_API_KEY is not set but 'openai' is the selected provider.")
+            
+        model = model_name or settings.openai_model_name
+        return ChatOpenAI(
+            model=model,
+            api_key=SecretStr(settings.openai_api_key),
             temperature=temperature,
         )
         
     else:
-        raise ValueError(f"Unsupported LLM provider: {provider}")
+        raise ValueError(f"Unsupported LLM provider: {selected_provider}")

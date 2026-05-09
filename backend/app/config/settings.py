@@ -23,7 +23,7 @@ HOW IT CONNECTS
 """
 
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -59,15 +59,17 @@ class Settings(BaseSettings):
     # ── Logging ───────────────────────────────────────────────────────────────
     log_level: str = "INFO"
 
-    # ── AI / OpenAI / Gemini ──────────────────────────────────────────────────
-    openai_api_key: str = ""  # Loaded from OPENAI_API_KEY env var
-    openai_model_name: str = "gpt-4o-mini" # Default model
+    # ── AI Providers ──────────────────────────────────────────────────────────
+    llm_provider: str = "groq"      # groq, gemini, openai
     
-    gemini_api_key: str = "" # Loaded from GEMINI_API_KEY env var
-    gemini_model_name: str = "gemini-2.0-flash" # Default Gemini model
+    openai_api_key: Optional[str] = None
+    openai_model_name: str = "gpt-4o-mini"
     
-    groq_api_key: str = "" # Loaded from GROQ_API_KEY env var
-    groq_model_name: str = "llama-3.3-70b-versatile" # Default Groq model
+    gemini_api_key: Optional[str] = None
+    gemini_model_name: str = "gemini-2.0-flash"
+    
+    groq_api_key: Optional[str] = None
+    groq_model_name: str = "llama-3.3-70b-versatile"
 
     # ── Redis & Celery ────────────────────────────────────────────────────────
     redis_host: str = "localhost"

@@ -51,15 +51,16 @@ services:
       --reload
       --reload-dir /app/app
 
+    env_file:
+      - .env
+
     environment:
-      APP_ENV: development
-      DEBUG: "true"
+      # These overrides take precedence over .env for container-to-container communication
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/agentic_router
-      SECRET_KEY: dev-secret-key-replace-in-production
-      LOG_LEVEL: INFO
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
 
     ports:
       - "8000:8000"                   # FastAPI accessible at http://localhost:8000
@@ -132,18 +133,15 @@ services:
     container_name: agentic_router_worker
     restart: unless-stopped
     command: celery -A app.celery_app.worker.celery_app worker --loglevel=info
+    env_file:
+      - .env
+
     environment:
-      APP_ENV: development
-      DEBUG: "true"
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/agentic_router
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
     volumes:
       - ./backend:/app
     depends_on:
