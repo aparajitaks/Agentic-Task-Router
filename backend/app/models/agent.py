@@ -77,7 +77,12 @@ class Agent(Base, TimestampMixin):
     )
 
     type: Mapped[AgentType] = mapped_column(
-        SAEnum(AgentType, name="agent_type_enum", create_type=True),
+        SAEnum(
+            AgentType,
+            name="agent_type_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         nullable=False,
         default=AgentType.LLM,
         doc="Functional category of this agent.",

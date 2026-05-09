@@ -27,8 +27,13 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 def _utcnow() -> datetime:
-    """Return a timezone-aware UTC datetime. Prefer this over datetime.utcnow()."""
-    return datetime.now(timezone.utc)
+    """Return a timezone-naive UTC datetime.
+    
+    SQLAlchemy's DateTime(timezone=False) with asyncpg requires naive datetimes.
+    If an aware datetime is passed, it fails with:
+    'can't subtract offset-naive and offset-aware datetimes'
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Base(DeclarativeBase):

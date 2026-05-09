@@ -34,16 +34,18 @@ class SyncWorkflowEngine:
     """Synchronous wrapper for executing async workflows in Celery."""
     
     def run_workflow(self, task_id_str: str, worker_id: str):
-        """Creates a new event loop and runs the async engine."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(self._async_run_workflow(task_id_str, worker_id))
-        finally:
-            loop.close()
+        """Runs the async engine using asyncio.run for proper loop management."""
+        asyncio.run(self._async_run_workflow(task_id_str, worker_id))
 
     async def _async_run_workflow(self, task_id_str: str, worker_id: str):
         task_id = uuid.UUID(task_id_str)
+        
+        # Force the engine to dispose of existing connections in its pool.
+        # This is critical in a Celery prefork environment where the engine
+        # might have been initialized in the parent process and inherited
+        # by this fork, or if it was tied to a previous event loop.
+        from app.db.session import engine
+        await engine.dispose()
         
         async with AsyncSessionLocal() as db:
             # 1. Fetch Task

@@ -86,7 +86,12 @@ class Log(Base):
     )
 
     level: Mapped[LogLevel] = mapped_column(
-        SAEnum(LogLevel, name="log_level_enum", create_type=True),
+        SAEnum(
+            LogLevel,
+            name="log_level_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         default=LogLevel.INFO,
         nullable=False,
         index=True,

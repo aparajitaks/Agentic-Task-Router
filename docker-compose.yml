@@ -104,6 +104,9 @@ services:
       db:
         condition: service_healthy
 
+    healthcheck:
+      disable: true
+
     profiles:
       - migrate                       # Only runs with: docker compose --profile migrate up
 
@@ -148,6 +151,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app.worker.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 
 # ─────────────────────────────────────────────────────────────────────────────

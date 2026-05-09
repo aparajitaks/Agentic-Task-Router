@@ -53,3 +53,4 @@ aiosqlite==0.20.0             # Async SQLite driver — used by conftest for in-
 # ── Development & Code Quality ────────────────────────────────────────────────
 ruff==0.8.4                   # Ultra-fast Python linter + formatter (replaces flake8, isort, black)
 mypy==1.13.0                  # Static type checking
+psycopg2-binary==2.9.10

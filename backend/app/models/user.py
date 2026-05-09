@@ -27,7 +27,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base_class import Base
+from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.task import Task
@@ -58,7 +58,7 @@ class User(Base):
     preferences: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=dict)
 
     # ── Relationships ─────────────────────────────────────────────────────────
-    tasks: Mapped[list[Task]] = relationship("Task", back_populates="user", cascade="all, delete-orphan")
+    tasks: Mapped[List["Task"]] = relationship("Task", back_populates="user", cascade="all, delete-orphan")
     approvals: Mapped[List["Approval"]] = relationship("Approval", back_populates="user", cascade="all, delete-orphan")
     oauth_tokens: Mapped[List["OAuthToken"]] = relationship("OAuthToken", back_populates="user", cascade="all, delete-orphan")
 

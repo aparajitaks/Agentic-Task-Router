@@ -164,7 +164,12 @@ class Task(Base, TimestampMixin):
     )
 
     status: Mapped[TaskStatus] = mapped_column(
-        SAEnum(TaskStatus, name="task_status_enum", create_type=True),
+        SAEnum(
+            TaskStatus,
+            name="task_status_enum",
+            create_type=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         default=TaskStatus.PENDING,
         nullable=False,
         index=True,           # Frequently filtered: "show me all PENDING tasks"

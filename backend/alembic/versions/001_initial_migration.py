@@ -27,27 +27,8 @@ def upgrade() -> None:
     """Apply the migration — create all tables and indexes."""
 
     # ── ENUM TYPES ─────────────────────────────────────────────────────────────
+    # We remove explicit enum creation and let sa.Enum create it if necessary
     # PostgreSQL uses native ENUM types for efficiency and constraint enforcement
-    agent_type_enum = postgresql.ENUM(
-        "llm", "tool", "human", "router",
-        name="agent_type_enum",
-        create_type=False,
-    )
-    agent_type_enum.create(op.get_bind(), checkfirst=True)
-
-    task_status_enum = postgresql.ENUM(
-        "pending", "in_progress", "completed", "failed", "cancelled",
-        name="task_status_enum",
-        create_type=False,
-    )
-    task_status_enum.create(op.get_bind(), checkfirst=True)
-
-    log_level_enum = postgresql.ENUM(
-        "debug", "info", "warning", "error", "critical",
-        name="log_level_enum",
-        create_type=False,
-    )
-    log_level_enum.create(op.get_bind(), checkfirst=True)
 
     # ── AGENTS TABLE ───────────────────────────────────────────────────────────
     op.create_table(

@@ -1,12 +1,7 @@
 from app.db.base import Base, TimestampMixin
-from app.db.session import get_db, init_db, close_db, AsyncSessionLocal, engine
 
+# Do NOT export session items here to avoid asyncpg dependencies leaking into Alembic
 __all__ = [
     "Base",
     "TimestampMixin",
-    "get_db",
-    "init_db",
-    "close_db",
-    "AsyncSessionLocal",
-    "engine",
 ]

@@ -74,6 +74,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting %s v%s [%s]", settings.app_name, settings.app_version, settings.app_env)
     await init_db()
     logger.info("Application startup complete.")
+    logger.info("CORS Allowed Origins: %s", settings.cors_origins)
     logger.info("=" * 60)
 
     yield  # Application runs here
@@ -118,10 +119,10 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins if not settings.is_production else settings.cors_origins, 
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],                   # GET, POST, PATCH, DELETE, OPTIONS
-        allow_headers=["*"],                   # Content-Type, Authorization, etc.
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     app.add_middleware(RequestLoggingMiddleware)
