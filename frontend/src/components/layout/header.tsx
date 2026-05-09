@@ -14,13 +14,16 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Search } from "lucide-react";
+import { useAuthStore } from "@/store/use-auth-store";
+import { Badge } from "@/components/ui/badge";
+import { Bell, Search, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Header() {
   const pathname = usePathname();
+  const { isDemoMode, isGmailConnected } = useAuthStore();
   
   // Very basic breadcrumb derivation
   const title = pathname === "/" 
@@ -31,6 +34,12 @@ export function Header() {
     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-6">
       <div className="flex flex-1 items-center gap-4">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        {isDemoMode && !isGmailConnected && (
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 gap-1.5 py-0.5">
+            <Zap className="h-3 w-3" />
+            Demo Mode
+          </Badge>
+        )}
       </div>
 
       <div className="flex items-center gap-4">

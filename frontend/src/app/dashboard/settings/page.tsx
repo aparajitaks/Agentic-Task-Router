@@ -40,28 +40,31 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { useAuthStore } from "@/store/use-auth-store";
+import { cn } from "@/lib/utils";
+
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
-  const [isGmailConnected, setIsGmailConnected] = useState(false);
+  const { isGmailConnected, setGmailConnected } = useAuthStore();
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
         const res = await apiClient.get<any, any>("/gmail/status");
-        setIsGmailConnected(res.connected);
+        setGmailConnected(res.connected);
       } catch (err) {
         console.error("Failed to fetch Gmail status", err);
       }
     };
     fetchStatus();
-  }, []);
+  }, [setGmailConnected]);
 
   const handleDisconnect = async () => {
     setIsDisconnecting(true);
     try {
       await apiClient.post("/gmail/disconnect");
-      setIsGmailConnected(false);
+      setGmailConnected(false);
     } catch (err) {
       console.error("Failed to disconnect Gmail", err);
     } finally {
@@ -150,29 +153,56 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               
               {/* Gmail Connection Row */}
-              <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/10">
+              <div className={cn(
+                "flex items-center justify-between p-4 rounded-xl border transition-all",
+                isGmailConnected ? "bg-emerald-500/5 border-emerald-500/20" : "bg-muted/10 border-muted"
+              )}>
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded bg-white flex items-center justify-center border shadow-sm">
-                    <Mail className="h-6 w-6 text-red-500" />
+                  <div className={cn(
+                    "h-12 w-12 rounded flex items-center justify-center border shadow-sm",
+                    isGmailConnected ? "bg-white" : "bg-muted grayscale"
+                  )}>
+                    <Mail className={cn("h-6 w-6", isGmailConnected ? "text-red-500" : "text-muted-foreground")} />
                   </div>
                   <div>
                     <p className="font-bold">Google Workspace / Gmail</p>
-                    <p className="text-xs text-muted-foreground">Connected as aparajit@gmail.com</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isGmailConnected ? "Connected and syncing." : "Not connected. Required for email orchestration."}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-8 text-xs border-muted-foreground/20">
-                    Sync Status
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-500"
-                    onClick={handleDisconnect}
-                    disabled={isDisconnecting}
-                  >
-                    {isDisconnecting ? "Disconnecting..." : "Disconnect"}
-                  </Button>
+                  {isGmailConnected ? (
+                    <>
+                      <Button variant="outline" size="sm" className="h-8 text-xs border-muted-foreground/20">
+                        Sync Status
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-500"
+                        onClick={handleDisconnect}
+                        disabled={isDisconnecting}
+                      >
+                        {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      className="h-8 text-xs gap-2"
+                      onClick={async () => {
+                        try {
+                          const res: any = await apiClient.get("/gmail/connect");
+                          if (res.auth_url) window.location.href = res.auth_url;
+                        } catch (err) {
+                          console.error("Failed to connect", err);
+                        }
+                      }}
+                    >
+                      Connect Gmail <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               </div>
 

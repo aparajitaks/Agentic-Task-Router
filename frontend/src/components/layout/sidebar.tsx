@@ -24,6 +24,7 @@ import {
   FileText
 } from "lucide-react";
 import { useUiStore } from "@/store/use-ui-store";
+import { useAuthStore } from "@/store/use-auth-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const { isSidebarOpen, setSidebarOpen } = useUiStore();
+  const { isGmailConnected } = useAuthStore();
 
   return (
     <aside 
@@ -88,17 +90,20 @@ export function Sidebar() {
         {/* Footer: User Workspace Info / Settings / Toggle */}
         <div className="border-t p-2 space-y-1">
           {isSidebarOpen && (
-            <div className="mb-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Plan: Pro</p>
+            <div className={cn(
+              "mb-2 px-3 py-2 rounded-lg border flex items-center justify-between transition-all",
+              isGmailConnected ? "bg-emerald-500/5 border-emerald-500/10" : "bg-red-500/5 border-red-500/10"
+            )}>
               <div className="flex items-center gap-2">
-                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary w-3/4" />
-                </div>
-                <span className="text-[9px] text-muted-foreground">75%</span>
+                <div className={cn("h-1.5 w-1.5 rounded-full animate-pulse", isGmailConnected ? "bg-emerald-500" : "bg-red-500")} />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Gmail</span>
               </div>
+              <span className={cn("text-[9px] font-bold uppercase", isGmailConnected ? "text-emerald-500" : "text-red-500")}>
+                {isGmailConnected ? "Active" : "Required"}
+              </span>
             </div>
           )}
-          
+
           <Link
             href="/dashboard/settings"
             className={cn(
