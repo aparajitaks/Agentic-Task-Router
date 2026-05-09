@@ -19,8 +19,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { useAuthStore } from "@/store/use-auth-store";
+import { useSearchParams } from "next/navigation";
 import { 
   Bot, 
   Mail, 
@@ -66,41 +67,73 @@ const DATA = [
 ];
 
 export default function WorkspaceDashboard() {
-  const [isGmailConnected, setIsGmailConnected] = useState(false);
+  const { isGmailConnected, isDemoMode, setGmailConnected } = useAuthStore();
+  const searchParams = useSearchParams();
+  
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [userEmail, setUserEmail] = useState("Not connected");
+  const [showAuthSuccess, setShowAuthSuccess] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("auth_success") === "true") {
+      setShowAuthSuccess(true);
+      setGmailConnected(true);
+      // Clean up URL
+      window.history.replaceState({}, "", "/dashboard");
+      setTimeout(() => setShowAuthSuccess(false), 5000);
+    }
+  }, [searchParams, setGmailConnected]);
 
   useEffect(() => {
     const fetchStats = async () => {
+      // If we are in Demo Mode, just use mock data
+      if (isDemoMode && !isGmailConnected) {
+        setPendingApprovals(5);
+        setUserEmail("demo@example.com");
+        return;
+      }
+
+      if (!isGmailConnected) return;
+      
       try {
         const config = { headers: { "X-Clerk-ID": "demo_user_123" } };
         
         // Fetch Gmail status
         const gmailRes: any = await apiClient.get("/gmail/status", config);
-        setIsGmailConnected(gmailRes.connected);
+        setGmailConnected(gmailRes.connected);
         
-        // Fetch Pending Approvals
-        const approvalsRes: any = await apiClient.get("/approvals/pending", config);
-        setPendingApprovals(approvalsRes.total || 0);
+        if (gmailRes.connected) {
+          // Fetch Pending Approvals
+          const approvalsRes: any = await apiClient.get("/approvals/pending", config);
+          setPendingApprovals(approvalsRes.total || 0);
 
-        // Fetch User Info
-        const userRes: any = await apiClient.get("/users/me", config);
-        setUserEmail(userRes.email);
+          // Fetch User Info
+          const userRes: any = await apiClient.get("/users/me", config);
+          setUserEmail(userRes.email);
+        }
       } catch (e) {
         console.error("Dashboard data fetch failed", e);
       }
     };
     fetchStats();
-  }, []);
+  }, [isGmailConnected, isDemoMode, setGmailConnected]);
 
   const handleSync = async () => {
     setIsSyncing(true);
+    
+    if (isDemoMode && !isGmailConnected) {
+      // Simulate sync for demo
+      setTimeout(() => {
+        setIsSyncing(false);
+      }, 1500);
+      return;
+    }
+
     try {
       await apiClient.post("/gmail/sync", {}, {
         headers: { "X-Clerk-ID": "demo_user_123" }
       });
-      // Refresh logic would go here
     } catch (e) {
       console.error("Sync failed", e);
     } finally {
@@ -111,6 +144,44 @@ export default function WorkspaceDashboard() {
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       
+      {/* ── Success Message ────────────────────────────────────────────────── */}
+      {showAuthSuccess && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center gap-4 animate-in slide-in-from-top duration-500">
+          <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+          </div>
+          <div>
+            <p className="font-bold text-emerald-500">Gmail Connected Successfully!</p>
+            <p className="text-sm text-emerald-500/80">Your AI agents are now scanning your inbox for tasks.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Demo Mode Banner ────────────────────────────────────────────────── */}
+      {isDemoMode && !isGmailConnected && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+              <Zap className="h-5 w-5 text-amber-500" />
+            </div>
+            <div>
+              <p className="font-bold text-amber-500">Viewing Demo Workspace</p>
+              <p className="text-sm text-amber-500/80">Connect your own Gmail to see real-time orchestration.</p>
+            </div>
+          </div>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="border-amber-500/20 hover:bg-amber-500/20 text-amber-600"
+            onClick={() => {
+              useAuthStore.getState().setDemoMode(false);
+            }}
+          >
+            Connect My Gmail
+          </Button>
+        </div>
+      )}
+
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-1">

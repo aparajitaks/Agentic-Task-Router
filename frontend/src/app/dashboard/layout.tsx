@@ -15,9 +15,13 @@
 
 "use client";
 
+import { useEffect } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { useUiStore } from "@/store/use-ui-store";
+import { useAuthStore } from "@/store/use-auth-store";
+import { OnboardingOverlay } from "@/components/dashboard/onboarding-overlay";
+import { apiClient } from "@/lib/api-client";
 
 export default function DashboardLayout({
   children,
@@ -25,9 +29,34 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { isSidebarOpen } = useUiStore();
+  const { isGmailConnected, isDemoMode, setGmailConnected } = useAuthStore();
+
+  // On mount, check if Gmail is connected
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res: any = await apiClient.get("/gmail/status", {
+          headers: { "X-Clerk-ID": "demo_user_123" }
+        });
+        setGmailConnected(res.connected);
+      } catch (error) {
+        console.error("Failed to check Gmail status", error);
+        setGmailConnected(false);
+      }
+    };
+    
+    if (!isDemoMode) {
+      checkStatus();
+    }
+  }, [setGmailConnected, isDemoMode]);
+
+  const showOnboarding = !isGmailConnected && !isDemoMode;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {/* Onboarding Wizard for non-connected users */}
+      {showOnboarding && <OnboardingOverlay />}
+
       {/* Fixed Sidebar */}
       <Sidebar />
       
@@ -35,7 +64,7 @@ export default function DashboardLayout({
       <div 
         className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${
           isSidebarOpen ? "md:pl-64" : "md:pl-16"
-        }`}
+        } ${showOnboarding ? "blur-sm pointer-events-none select-none" : ""}`}
       >
         <Header />
         
