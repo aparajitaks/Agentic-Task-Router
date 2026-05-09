@@ -22,8 +22,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import sqlalchemy as sa
-from typing import cast
 import uuid
+import httpx
 
 from app.db.session import get_db
 from app.models.user import User
@@ -32,6 +32,9 @@ from app.oauth.google import GoogleOAuthService
 from app.ingestion.email_ingester import EmailIngester
 from app.models.gmail import OAuthToken, EmailMessage
 from app.core.responses import success_response, paginated_response
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/gmail", tags=["Gmail Integration"])
 
@@ -96,7 +99,6 @@ async def disconnect_gmail(
     
     if token:
         # REAL DISCONNECT: Revoke the token from Google's servers
-        import httpx
         try:
             async with httpx.AsyncClient() as client:
                 # We prioritize revoking the refresh_token as it's more durable, 
@@ -110,10 +112,14 @@ async def disconnect_gmail(
                 if revoke_res.status_code == 200:
                     logger.info(f"Google OAuth token revoked for user: {current_user.id}")
                 else:
-                    logger.warning(f"Google token revocation returned status {revoke_res.status_code}: {revoke_res.text}")
+                    logger.warning(
+                        "Google token revocation returned status %d: %s",
+                        revoke_res.status_code,
+                        revoke_res.text
+                    )
         except Exception as e:
             # We don't block DB deletion if Google revocation fails (e.g. token already expired)
-            logger.error(f"Error during Google token revocation: {str(e)}")
+            logger.error(f"Error during Google token revocation for user {current_user.id}: {str(e)}")
 
         await db.delete(token)
         await db.commit()

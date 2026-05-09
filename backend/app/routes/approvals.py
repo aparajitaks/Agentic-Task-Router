@@ -32,6 +32,9 @@ from app.db.session import get_db
 from app.models.user import User
 from app.core.auth import get_current_user
 from app.core.responses import success_response, paginated_response
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 from app.models.approval import ApprovalStatus
 from app.schemas.approval import (
     ApprovalResponse,
