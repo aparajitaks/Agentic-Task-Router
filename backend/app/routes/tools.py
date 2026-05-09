@@ -19,6 +19,7 @@ from sqlalchemy import desc
 from app.db.session import get_db
 from app.models.tool import ToolExecutionLog
 from app.tools.registry import get_all_tools
+from app.core.responses import success_response
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
 
@@ -26,15 +27,15 @@ router = APIRouter(prefix="/tools", tags=["Tools"])
 async def list_tools():
     """Returns a list of all tools currently available to the AI agents."""
     tools = get_all_tools()
-    return {
-        "success": True,
-        "data": [
+    return success_response(
+        data=[
             {
                 "name": t.name,
                 "description": t.description
             } for t in tools
-        ]
-    }
+        ],
+        message="Tools retrieved successfully."
+    )
 
 @router.get("/logs", summary="Get tool execution logs")
 async def get_tool_logs(limit: int = 50, db: AsyncSession = Depends(get_db)):
@@ -43,9 +44,8 @@ async def get_tool_logs(limit: int = 50, db: AsyncSession = Depends(get_db)):
     result = await db.execute(stmt)
     logs = result.scalars().all()
     
-    return {
-        "success": True,
-        "data": [
+    return success_response(
+        data=[
             {
                 "id": str(log.id),
                 "task_id": str(log.task_id) if log.task_id else None,
@@ -54,5 +54,6 @@ async def get_tool_logs(limit: int = 50, db: AsyncSession = Depends(get_db)):
                 "execution_time_ms": log.execution_time_ms,
                 "created_at": log.created_at.isoformat()
             } for log in logs
-        ]
-    }
+        ],
+        message="Tool execution logs retrieved."
+    )
