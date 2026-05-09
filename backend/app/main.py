@@ -125,9 +125,13 @@ def create_app() -> FastAPI:
 
     app.add_middleware(RequestLoggingMiddleware)
 
+    # In development, we often access via different hostnames (localhost, 127.0.0.1, or network IP)
+    # Allowing all origins in dev prevents 'Axios Network Error' during local testing.
+    origins = ["*"] if settings.app_env.lower() == "development" else settings.cors_origins
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

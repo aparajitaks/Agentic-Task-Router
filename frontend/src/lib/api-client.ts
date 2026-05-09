@@ -42,6 +42,16 @@ export const apiClient = axios.create({
   },
 });
 
+// Request interceptor for logging
+apiClient.interceptors.request.use((config) => {
+  console.log(`🚀 [API Request] ${config.method?.toUpperCase()} ${config.url}`, {
+    params: config.params,
+    headers: config.headers,
+    baseURL: config.baseURL
+  });
+  return config;
+});
+
 // Response interceptor to handle our standard backend envelope: { success: true, data: ... }
 apiClient.interceptors.response.use(
   (response) => {

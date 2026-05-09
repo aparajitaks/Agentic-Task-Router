@@ -63,6 +63,8 @@ export default function WorkspaceDashboard() {
   
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("Not connected");
   const [showAuthSuccess, setShowAuthSuccess] = useState(false);
 
@@ -77,29 +79,42 @@ export default function WorkspaceDashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
+      setIsLoading(true);
+      setFetchError(null);
+
       if (isDemoMode && !isGmailConnected) {
         setPendingApprovals(5);
         setUserEmail("demo@example.com");
+        setIsLoading(false);
         return;
       }
 
-      if (!isGmailConnected) return;
+      if (!isGmailConnected) {
+        setIsLoading(false);
+        return;
+      }
       
       try {
         const config = { headers: { "X-Clerk-ID": "demo_user_123" } };
         
+        console.log("Fetching dashboard stats...");
         const gmailRes: any = await apiClient.get("/gmail/status", config);
         setGmailConnected(gmailRes.connected);
         
         if (gmailRes.connected) {
-          const approvalsRes: any = await apiClient.get("/approvals/pending", config);
+          const [approvalsRes, userRes] = await Promise.all([
+            apiClient.get<any, any>("/approvals/pending", config),
+            apiClient.get<any, any>("/users/me", config)
+          ]);
+          
           setPendingApprovals(approvalsRes.total || 0);
-
-          const userRes: any = await apiClient.get("/users/me", config);
           setUserEmail(userRes.email);
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("Dashboard data fetch failed", e);
+        setFetchError(e.message || "Network Error: Could not reach the backend API.");
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchStats();
@@ -172,8 +187,31 @@ export default function WorkspaceDashboard() {
         </div>
       )}
 
+      {/* Error Message */}
+      {fetchError && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+            </div>
+            <div>
+              <p className="font-bold text-red-500">Dashboard Sync Error</p>
+              <p className="text-sm text-red-500/80">{fetchError}</p>
+            </div>
+          </div>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="border-red-500/20 hover:bg-red-500/20 text-red-600"
+            onClick={() => window.location.reload()}
+          >
+            Retry Connection
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className={cn("flex flex-col md:flex-row md:items-end justify-between gap-4", isLoading && "opacity-50 pointer-events-none")}>
         <div className="space-y-1">
           <Badge variant="outline" className="text-[10px] uppercase tracking-widest text-primary border-primary/20 bg-primary/5">
             Personal Workspace
@@ -283,7 +321,7 @@ export default function WorkspaceDashboard() {
             <Badge variant="outline" className="bg-primary/5 text-primary">Live</Badge>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="h-[300px] w-full min-h-[300px]">
+            <div style={{ height: "300px", width: "100%", minHeight: "300px" }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={DATA}>
                   <defs>
