@@ -48,7 +48,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await apiClient.get("/gmail/status");
+        const res = await apiClient.get<any, any>("/gmail/status");
         setIsGmailConnected(res.connected);
       } catch (err) {
         console.error("Failed to fetch Gmail status", err);

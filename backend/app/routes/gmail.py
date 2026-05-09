@@ -52,7 +52,7 @@ async def gmail_callback(
 ) -> dict:
     """Handles the redirect from Google and stores the OAuth tokens."""
     oauth_service = GoogleOAuthService()
-    await oauth_service.exchange_code_for_token(db, code, cast(uuid.UUID, current_user.id))
+    await oauth_service.exchange_code_for_token(db, code, current_user.id)
     return success_response(data={}, message="Gmail connected successfully! You can close this window.")
 
 
@@ -63,8 +63,7 @@ async def gmail_status(
 ) -> dict:
     """Checks if the system has valid Gmail OAuth tokens."""
     stmt = select(OAuthToken).where(
-        OAuthToken.provider == "google",
-        OAuthToken.user_id == cast(uuid.UUID, current_user.id)
+        OAuthToken.user_id == current_user.id
     )
     result = await db.execute(stmt)
     token = result.scalar_one_or_none()
@@ -90,7 +89,7 @@ async def disconnect_gmail(
     """Revokes Gmail OAuth tokens and disconnects the integration."""
     stmt = select(OAuthToken).where(
         OAuthToken.provider == "google",
-        OAuthToken.user_id == cast(uuid.UUID, current_user.id)
+        OAuthToken.user_id == current_user.id
     )
     result = await db.execute(stmt)
     token = result.scalar_one_or_none()
@@ -111,7 +110,7 @@ async def sync_emails(
     """
     Manually triggers the pipeline to fetch unread emails for the current user.
     """
-    ingester = EmailIngester(db, user_id=cast(uuid.UUID, current_user.id))
+    ingester = EmailIngester(db, user_id=current_user.id)
     count = await ingester.sync_unread_emails()
     
     return success_response(
@@ -130,12 +129,12 @@ async def list_ingested_emails(
     offset = (page - 1) * page_size
     
     # Count total
-    count_stmt = select(sa.func.count()).select_from(EmailMessage).where(EmailMessage.user_id == cast(uuid.UUID, current_user.id))
+    count_stmt = select(sa.func.count()).select_from(EmailMessage).where(EmailMessage.user_id == current_user.id)
     count_result = await db.execute(count_stmt)
     total = count_result.scalar_one()
 
     # Fetch messages
-    stmt = select(EmailMessage).where(EmailMessage.user_id == cast(uuid.UUID, current_user.id)).order_by(EmailMessage.created_at.desc()).offset(offset).limit(page_size)
+    stmt = select(EmailMessage).where(EmailMessage.user_id == current_user.id).order_by(EmailMessage.created_at.desc()).offset(offset).limit(page_size)
     result = await db.execute(stmt)
     messages = result.scalars().all()
 

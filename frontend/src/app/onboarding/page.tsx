@@ -116,7 +116,7 @@ export default function OnboardingPage() {
   const handleConnectGmail = async () => {
     setIsConnecting(true);
     try {
-      const response = await apiClient.get("/gmail/connect", {
+      const response = await apiClient.get<any, any>("/gmail/connect", {
         headers: { "X-Clerk-ID": "demo_user_123" }
       });
       // The apiClient interceptor might unwrap data.data, so handle safely:
