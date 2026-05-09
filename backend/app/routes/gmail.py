@@ -26,6 +26,7 @@ import sqlalchemy as sa
 import uuid
 import httpx
 
+from app.config.settings import get_settings
 from app.db.session import get_db
 from app.models.user import User
 from app.core.auth import get_current_user
@@ -35,6 +36,7 @@ from app.models.gmail import OAuthToken, EmailMessage
 from app.core.responses import success_response, paginated_response
 from app.core.logging import get_logger
 
+settings = get_settings()
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/gmail", tags=["Gmail Integration"])
@@ -53,7 +55,7 @@ async def gmail_callback(
     code: str = Query(..., description="The authorization code from Google"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-) -> dict:
+):
     """Handles the redirect from Google and stores the OAuth tokens."""
     oauth_service = GoogleOAuthService()
     await oauth_service.exchange_code_for_token(db, code, current_user.id)

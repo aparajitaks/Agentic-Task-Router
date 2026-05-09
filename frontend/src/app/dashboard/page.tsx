@@ -19,6 +19,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useSearchParams } from "next/navigation";
