@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"
 
+    # ── Google OAuth ──────────────────────────────────────────────────────────
+    google_client_id: Optional[str] = None
+    google_client_secret: Optional[str] = None
+    google_redirect_uri: str = "http://localhost:8000/api/v1/gmail/callback"
+
     # ── Derived helpers ──────────────────────────────────────────────────────
     @property
     def cors_origins(self) -> List[str]:

@@ -31,7 +31,10 @@ from app.config.settings import get_settings
 from app.models.gmail import OAuthToken
 from app.core.exceptions import ValidationException
 
+from app.core.logging import get_logger
+
 settings = get_settings()
+logger = get_logger(__name__)
 
 # Scopes define EXACTLY what our app is allowed to do. We only need read/modify for Gmail.
 GMAIL_SCOPES = [
@@ -40,25 +43,43 @@ GMAIL_SCOPES = [
 
 class GoogleOAuthService:
     def __init__(self):
-        # In a real enterprise system, credentials.json is securely injected via Secret Manager.
-        # For this setup, we assume client_secret.json exists in the root or env vars.
-        # Here we use a minimal placeholder or env-based config for the flow.
+        """
+        Initializes the Google OAuth Flow configuration.
+        
+        CRITICAL: We MUST ensure client_id and client_secret are loaded from env.
+        If they are missing or still 'PLACEHOLDER', the OAuth flow will fail.
+        """
+        # Validate settings on init
+        client_id = settings.google_client_id
+        client_secret = settings.google_client_secret
+        
+        if not client_id or "PLACEHOLDER" in client_id:
+            logger.error("CRITICAL: GOOGLE_CLIENT_ID is missing or invalid!")
+        else:
+            logger.info("Google OAuth Client ID loaded: %s...", client_id[:15])
+
+        if not client_secret or "PLACEHOLDER" in client_secret:
+            logger.error("CRITICAL: GOOGLE_CLIENT_SECRET is missing or invalid!")
+        
         self.client_config = {
             "web": {
-                "client_id": settings.google_client_id if hasattr(settings, "google_client_id") else "PLACEHOLDER_ID",
-                "client_secret": settings.google_client_secret if hasattr(settings, "google_client_secret") else "PLACEHOLDER_SECRET",
+                "client_id": client_id,
+                "client_secret": client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": ["http://localhost:8000/api/v1/gmail/callback"]
+                "redirect_uris": [settings.google_redirect_uri]
             }
         }
 
     def get_authorization_url(self) -> str:
         """Generates the URL for the user to authorize our app."""
+        if not self.client_config["web"]["client_id"]:
+            raise ValidationException("Google Client ID is not configured. Please check environment variables.")
+
         flow = Flow.from_client_config(
             self.client_config, 
             scopes=GMAIL_SCOPES,
-            redirect_uri="http://localhost:8000/api/v1/gmail/callback"
+            redirect_uri=settings.google_redirect_uri
         )
         
         # access_type="offline" is CRITICAL to get a refresh_token

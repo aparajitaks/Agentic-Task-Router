@@ -33,11 +33,8 @@ services:
     container_name: agentic_router_api
     restart: unless-stopped
     command: >
-      uvicorn app.main:app
-      --host 0.0.0.0
-      --port 8000
-      --reload
-      --reload-dir /app/app
+      sh -c "alembic upgrade head && 
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app"
     env_file: .env
     ports:
       - "8000:8000"
@@ -92,7 +89,9 @@ services:
       target: runtime
     container_name: agentic_router_worker
     restart: unless-stopped
-    command: celery -A app.celery_app.worker.celery_app worker --loglevel=info
+    command: >
+      sh -c "alembic upgrade head && 
+             celery -A app.celery_app.worker.celery_app worker --loglevel=info"
     env_file: .env
     volumes:
       - ./backend:/app

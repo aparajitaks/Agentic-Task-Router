@@ -75,6 +75,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await init_db()
     logger.info("Application startup complete.")
     logger.info("CORS Allowed Origins: %s", settings.cors_origins)
+    
+    # Verify Google OAuth config
+    if settings.google_client_id:
+        logger.info("Google OAuth: Client ID loaded (%s...)", settings.google_client_id[:15])
+    else:
+        logger.error("Google OAuth: Client ID is MISSING!")
+        
     logger.info("=" * 60)
 
     yield  # Application runs here
