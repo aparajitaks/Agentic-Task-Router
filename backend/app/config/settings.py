@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     # ALLOWED_ORIGINS is a comma-separated string in .env; parsed into a list below
     allowed_origins: str = "http://localhost:3000"
+    frontend_url: str = "http://localhost:3000"
 
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = (

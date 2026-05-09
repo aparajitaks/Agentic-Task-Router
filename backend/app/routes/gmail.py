@@ -18,7 +18,8 @@ HOW IT CONNECTS
     `EmailIngester`.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, responses
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import sqlalchemy as sa
@@ -56,7 +57,10 @@ async def gmail_callback(
     """Handles the redirect from Google and stores the OAuth tokens."""
     oauth_service = GoogleOAuthService()
     await oauth_service.exchange_code_for_token(db, code, current_user.id)
-    return success_response(data={}, message="Gmail connected successfully! You can close this window.")
+    
+    # Redirect back to the frontend onboarding or dashboard
+    # We append a success parameter so the frontend can show a toast
+    return RedirectResponse(url=f"{settings.frontend_url}/dashboard?auth_success=true")
 
 
 @router.get("/status", summary="Check Integration Status")
