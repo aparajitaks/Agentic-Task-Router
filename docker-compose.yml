@@ -1,31 +1,22 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # docker-compose.yml — Agentic Task Router
 # ─────────────────────────────────────────────────────────────────────────────
-# Run the full stack with:   docker compose up --build
-# Run in background with:    docker compose up -d --build
-# Stop everything:           docker compose down
-# Destroy volumes too:       docker compose down -v
-# ─────────────────────────────────────────────────────────────────────────────
 
 services:
 
   # ── PostgreSQL Database ────────────────────────────────────────────────────
   db:
-    image: postgres:16-alpine          # Alpine = smaller image, same Postgres
+    image: postgres:16-alpine
     container_name: agentic_router_db
     restart: unless-stopped
-
     environment:
       POSTGRES_DB: agentic_router
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-
     ports:
-      - "5433:5432"                    # Map host:container so local tools can connect
-
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data   # Persist data across restarts
-
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d agentic_router"]
       interval: 10s
@@ -36,43 +27,25 @@ services:
   # ── FastAPI Backend ────────────────────────────────────────────────────────
   backend:
     build:
-      context: ./backend              # Path to the Dockerfile
+      context: ./backend
       dockerfile: Dockerfile
-      target: runtime                 # Use the runtime stage of the multi-stage build
-
+      target: runtime
     container_name: agentic_router_api
     restart: unless-stopped
-
-    # Override CMD to enable hot-reload in development
     command: >
       uvicorn app.main:app
       --host 0.0.0.0
       --port 8000
       --reload
       --reload-dir /app/app
-
-    env_file:
-      - .env
-
-    environment:
-      # These overrides take precedence over .env for container-to-container communication
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/agentic_router
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
-
+    env_file: .env
     ports:
-      - "8000:8000"                   # FastAPI accessible at http://localhost:8000
-
+      - "8000:8000"
     volumes:
-      # Mount source code for hot-reload in development
       - ./backend:/app
-
     depends_on:
       db:
-        condition: service_healthy    # Wait for DB health check before starting
-
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -81,37 +54,24 @@ services:
       start_period: 40s
 
   # ── Alembic Migration Runner ───────────────────────────────────────────────
-  # Run migrations manually with:
-  #   docker compose run --rm migrate
-  # This is separate from the backend to make migration runs explicit.
   migrate:
     build:
       context: ./backend
       dockerfile: Dockerfile
       target: runtime
-
     container_name: agentic_router_migrate
-    restart: "no"                     # Run once and exit
-
-    command: alembic upgrade head     # Apply all pending migrations
-
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/agentic_router
-
+    restart: "no"
+    command: alembic upgrade head
+    env_file: .env
     volumes:
       - ./backend:/app
-
     depends_on:
       db:
         condition: service_healthy
-
-    healthcheck:
-      disable: true
-
     profiles:
-      - migrate                       # Only runs with: docker compose --profile migrate up
+      - migrate
 
-  # ── Redis (Message Broker & Result Backend) ──────────────────────────────
+  # ── Redis ──────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: agentic_router_redis
@@ -124,7 +84,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Celery Worker (Async Task Execution) ───────────────────────────────────
+  # ── Celery Worker ──────────────────────────────────────────────────────────
   worker:
     build:
       context: ./backend
@@ -133,15 +93,7 @@ services:
     container_name: agentic_router_worker
     restart: unless-stopped
     command: celery -A app.celery_app.worker.celery_app worker --loglevel=info
-    env_file:
-      - .env
-
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/agentic_router
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    env_file: .env
     volumes:
       - ./backend:/app
     depends_on:
@@ -156,10 +108,6 @@ services:
       retries: 3
       start_period: 40s
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Named Volumes
-# ─────────────────────────────────────────────────────────────────────────────
 volumes:
   postgres_data:
     name: agentic_router_postgres_data
