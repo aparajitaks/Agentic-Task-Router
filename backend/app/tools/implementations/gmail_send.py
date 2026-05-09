@@ -44,6 +44,7 @@ async def _send_email_async(to: str, subject: str, body: str, user_id: str) -> s
         create_message = {'raw': encoded_message}
         
         # Execute the send
+        # type: ignore[attr-defined]
         send_message = service.users().messages().send(userId="me", body=create_message).execute()
         return f"Email sent successfully. Message Id: {send_message['id']}"
         

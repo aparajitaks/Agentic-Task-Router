@@ -25,3 +25,25 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "langgraph.*"
 ignore_missing_imports = true
+
+[tool.pyrefly]
+# Suppress false-positive diagnostics from Pyrefly's internal virtual buffers.
+# These "inmemory" files are code snippets analyzed out-of-context during IDE
+# hover/autocomplete and are never real errors.
+untyped_def_behavior = "warn"
+sub_errors_in_project = false
+
+[[tool.pyrefly.rules]]
+rule = "unknown-name"
+path_match = "/__pyrefly_virtual__/**"
+enabled = false
+
+[[tool.pyrefly.rules]]
+rule = "parse-error"
+path_match = "/__pyrefly_virtual__/**"
+enabled = false
+
+[[tool.pyrefly.rules]]
+rule = "invalid-syntax"
+path_match = "/__pyrefly_virtual__/**"
+enabled = false

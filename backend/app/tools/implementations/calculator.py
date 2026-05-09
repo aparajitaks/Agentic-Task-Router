@@ -29,8 +29,10 @@ _ALLOWED_OPERATORS: dict[type[ast.operator] | type[ast.unaryop], Callable[..., A
 }
 
 def _safe_eval(node):
-    if isinstance(node, ast.Num):  # <number>
-        return node.n
+    if isinstance(node, ast.Constant):  # <number>
+        return node.value
+    elif isinstance(node, ast.Num):  # Legacy support
+        return node.n  # type: ignore[attr-defined]
     elif isinstance(node, ast.BinOp):  # <left> <operator> <right>
         op = type(node.op)
         if op in _ALLOWED_OPERATORS:
@@ -42,7 +44,7 @@ def _safe_eval(node):
         if op_type in _ALLOWED_OPERATORS:
             return _ALLOWED_OPERATORS[op_type](_safe_eval(node.operand))
         else:
-            raise ValueError(f"Unsupported operator: {op}")
+            raise ValueError(f"Unsupported operator: {op_type}")
     else:
         raise ValueError(f"Unsupported expression component: {type(node)}")
 

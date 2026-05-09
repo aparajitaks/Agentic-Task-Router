@@ -38,7 +38,9 @@ async def _async_poll_gmail():
         for user in users:
             try:
                 # Ingester is now scoped to a specific user
-                ingester = EmailIngester(db, user.id)
+                import uuid
+                from typing import cast
+                ingester = EmailIngester(db, cast(uuid.UUID, user.id))
                 count = await ingester.sync_unread_emails()
                 total_processed += count
             except Exception as e:

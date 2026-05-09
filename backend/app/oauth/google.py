@@ -20,7 +20,7 @@ HOW IT CONNECTS
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from google.oauth2.credentials import Credentials
@@ -96,14 +96,12 @@ class GoogleOAuthService:
         if not token_record:
             token_record = OAuthToken(provider="google", user_id=user_id)
             db.add(token_record)
-
-        from typing import cast
         token_record.access_token = cast(str, creds.token)
         if creds.refresh_token:
             token_record.refresh_token = cast(str, creds.refresh_token)
             
-        token_record.scopes = cast(Optional[str], ",".join(creds.scopes) if creds.scopes else None)
-        token_record.expires_at = cast(Optional[datetime], creds.expiry)
+        token_record.scopes = ",".join(creds.scopes) if creds.scopes else None  # type: ignore[assignment]
+        token_record.expires_at = creds.expiry  # type: ignore[assignment]
 
         await db.commit()
         await db.refresh(token_record)
@@ -138,9 +136,8 @@ class GoogleOAuthService:
             try:
                 creds.refresh(Request())
                 # Update the DB with the new access token
-                from typing import cast
                 token_record.access_token = cast(str, creds.token)
-                token_record.expires_at = cast(Optional[datetime], creds.expiry)
+                token_record.expires_at = creds.expiry  # type: ignore[assignment]
                 await db.commit()
             except Exception as e:
                 raise ValidationException(f"Failed to refresh Google token: {str(e)}")
